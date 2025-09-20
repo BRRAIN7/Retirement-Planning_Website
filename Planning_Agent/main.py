@@ -1,12 +1,12 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph,START,END
 
-from ML_models import goal_classifier,risk_appetite_pred
+from ML_models import goal_classification,risk_appetite_pred
 
 
 class AgentState(TypedDict):
-    input_data:str #or json however sent
-    risk_appetite : str #received from the ML model
+    input_data:dict 
+    risk_appetite : str 
     feasibility: dict
     plan:str
     formatted_output:str
@@ -22,7 +22,7 @@ def input_collector(state:AgentState) ->AgentState :
     return state
 
 def goal_classifier(state: AgentState)->AgentState:
-    goal_classifier()
+    goal_classification()
     return state
 
 def session_updater(state:AgentState) ->AgentState :
@@ -75,7 +75,7 @@ graph.add_edge("output",END)
 
 built_graph= graph.compile()
 
-result = built_graph.invoke({"input_data":"Name is arnav im garreb very vey much"})
+#result = built_graph.invoke({"input_data":"Name is arnav im garreb very vey much"})
 #print(result)
 
 
