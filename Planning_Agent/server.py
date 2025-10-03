@@ -4,8 +4,8 @@ from langgraph.graph import StateGraph
 def collecctor():
     user_data ={
         "personal_info": {
-            "name": "Arnav Kumar",
-            "age": 30,
+            "name": "Aryan Kumar",
+            "current_age": 30,
             "gender": "Male",
             "marital_status": "Married",
             "number_of_children": 1
@@ -65,9 +65,12 @@ def collecctor():
             ]
         },
         "retirement_info": {
-            "desired_age": 60,
-            "expected_lifestyle_description": "A comfortable life with travel twice a year and pursuing hobbies.",
-            "expected_monthly_expenses": 75000
+            "desired_retirement_age": 60,
+            "retirement_lifestyle_description": "A comfortable life with travel twice a year and pursuing hobbies.",
+            "desired_retirement_expenses_inr": 75000,
+            "risk_tolerance_score": 256,
+            "investment_preferences": "saving",
+            "annual_savings_rate_percent": 45677.78
         }
     }
 
@@ -75,3 +78,5 @@ def collecctor():
     print(result)
 if __name__ == "__main__":
     collecctor()
+    
+    
