@@ -33,6 +33,5 @@ def goal_classification(state: dict) -> dict:
             # Add the classified goal to the list
             classified_goals.append(classified_goal)
 
-    # Output the classified goals in the desired format
-    print("Classified Goals:", classified_goals)
+
     return classified_goals
