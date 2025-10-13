@@ -19,7 +19,8 @@ class AgentState(TypedDict):
 
 
 def input_collector(state:AgentState) ->AgentState :
-    print("Here the inputs will be collected which are received from the frontend")
+    print(" ")
+    print("==========================Inside Input Collector==========================")
     input_data = state.get("input_data", {})
 
     
@@ -60,47 +61,83 @@ def input_collector(state:AgentState) ->AgentState :
 
 def goal_classifier(state: AgentState)->AgentState:
     print(" ")
-    print ("Node 2")
+    print("==========================Inside Goal Classifier ==========================")
     state["goals"]=goal_classification(state)
     
     print("Agent state after classificatino:  ",state["goals"])
     return state
 
 
-
-
-
-def session_updater(state: AgentState) -> AgentState:
-    print (" ")
-    insert(state)
-    print (" ")
-    return state
-
-
-
 def risk_predictor(state:AgentState) ->AgentState :
-  
+    print(" ")
+    print("==========================Inside Risk Predictor==========================")    
     risk= risk_appetite_pred()
     state["risk_appetite"]=risk
     print(f"Risk of the user is :{risk}")
     return state
 
-def finantial_calc(state:AgentState) -> AgentState:
 
-    print("calculates the loans or saving or investments for goals")
+def session_updater(state: AgentState) -> AgentState:
+    print(" ")
+    print("==========================Inside Session Updator==========================")
+    insert(state)
     print (" ")
+    return state
+
+
+def finantial_calc(state:AgentState) -> AgentState:
+    print(" ")
+    print("==========================Inside Finantial Calculator==========================")
+
+
+    #1. calc the monthly surplus --> monthlyincome - monthly expenses
+
+    monthly_income=state["user_profile"]["income"]["annual"]/12
+    state["user_profile"]["income"]["monthly_income"]=monthly_income
+
+    monthly_surplus = state["user_profile"]["income"]["monthly_income"]-state["user_profile"]["expenses"]["monthly_total"]
+    state["user_profile"]["monthly_surplus"]=monthly_surplus
+
+    #2. Checking for emergency fund that i should have
+        #emergency fund = essential monthly expenses * 3 or 6  (for 3 months or 6 months)
+    
+    essential_expenses= state["user_profile"]["expenses"]["monthly_total"]-state["user_profile"]["expenses"]["components"]["investment_sips"]
+
+    target_emergency_fund=essential_expenses * 3 # kept a 3 month emergency fund for now
+
+    if (target_emergency_fund < state["user_profile"]["assets"]["emergency_fund"]):
+        dictionary= {
+            "name":"Build Emergency Fund (very crucial)",
+            "target_amount": state["user_profile"]["assets"]["emergency_fund"]-target_emergency_fund,
+            "term": "short_term",
+            "type": "Savings"        
+        }
+
+        state["goals"].append(dictionary)
+
     print(state)
+    
+
+
+
+
+
+
+
     return state
 
 def feasibility_checker(state:AgentState) ->AgentState :
-    print("Receives the output of the feasibility checker")
+    print(" ")
+    print("==========================Inside Feasibility checker==========================")
     return state
 
 def plan_generator(state:AgentState) ->AgentState :
-    print("Generates plan")
+    print(" ")
+    print("==========================Inside Plan generator==========================")
     return state
 
 def output(state:AgentState)-> AgentState:
+    print(" ")
     print("Displays the output")
     return state
 
