@@ -1,7 +1,7 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph,START,END
 from session_manager import insert
-
+import numpy_financial as npf
 
 from ML_models import goal_classification,risk_appetite_pred
 
@@ -84,7 +84,12 @@ def session_updater(state: AgentState) -> AgentState:
     print (" ")
     return state
 
-
+#SOME ASSUMPTIONS DONE FOR CALC SAKE IN financial_calc node
+INFLATION_RATE = 0.06
+INVESTMENT_RETURN_RATE = 0.12 # Assumed return for new investments
+EPF_RETURN_RATE = 0.0825
+PPF_RETURN_RATE = 0.071
+NPS_RETURN_RATE = 0.10 # Assuming a moderate-risk NPS portfolio
 def finantial_calc(state:AgentState) -> AgentState:
     print(" ")
     print("==========================Inside Finantial Calculator==========================")
@@ -104,13 +109,16 @@ def finantial_calc(state:AgentState) -> AgentState:
     essential_expenses= state["user_profile"]["expenses"]["monthly_total"]-state["user_profile"]["expenses"]["components"]["investment_sips"]
 
     target_emergency_fund=essential_expenses * 3 # kept a 3 month emergency fund for now
-
-    if (target_emergency_fund < state["user_profile"]["assets"]["emergency_fund"]):
+    emergency_fund_sip=0
+    if state["user_profile"]["assets"]["emergency_fund"] < target_emergency_fund:
+        shortfall=  target_emergency_fund - state["user_profile"]["assets"]["emergency_fund"]
+        emergency_fund_sip = shortfall / 18
         dictionary= {
             "name":"Build Emergency Fund (very crucial)",
-            "target_amount": state["user_profile"]["assets"]["emergency_fund"]-target_emergency_fund,
+            "target_amount": shortfall,
             "term": "short_term",
-            "type": "Savings"        
+            "type": "Savings",
+            "required_monthly_investment": emergency_fund_sip 
         }
 
         state["goals"].append(dictionary)
@@ -118,8 +126,76 @@ def finantial_calc(state:AgentState) -> AgentState:
     print(state)
     
 
+    #3 Perform the Complete Retirement Calculation
+    current_age = state["user_profile"]["age"]
+    desired_retirement_age = state["input_data"]["retirement_info"]["desired_retirement_age"]
+    years_to_retirement = desired_retirement_age - current_age
+    
+    desired_monthly_expenses = state["input_data"]["retirement_info"]["desired_retirement_expenses_inr"]
+    current_annual_base_expense = desired_monthly_expenses * 12
+
+    # a. Gross Corpus Calculation
+    future_annual_expenses = npf.fv(INFLATION_RATE, years_to_retirement, 0, -current_annual_base_expense)
+    gross_corpus = future_annual_expenses * 25 # Using the 4% rule (1/0.04 = 25)
+    print(f"Years to Retirement: {years_to_retirement}")
+    print(f"Future Annual Expenses (at retirement): ₹{future_annual_expenses:,.2f}")
+    print(f"Gross Retirement Corpus Needed: ₹{gross_corpus:,.2f}")
+
+    # b. Future Value of Existing Assets
+    projected_future_assets = 0
+    assets = state["user_profile"]["assets"]
+    
+    # Project EPF, PPF, NPS
+    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered 
+    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered 
+    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered 
+    
+    # Assume 80% of other investments are for retirement
+    retirement_investments_pv = assets["total_investments"] * 0.80
+    projected_future_assets += npf.fv(INVESTMENT_RETURN_RATE, years_to_retirement, 0, -retirement_investments_pv)
+    print(f"Projected Future Value of Existing Assets: ₹{projected_future_assets:,.2f}")
+    
+    # c. Net Corpus (The Shortfall)
+    net_corpus_to_build = gross_corpus - projected_future_assets
+    if net_corpus_to_build < 0:
+        net_corpus_to_build = 0 
+    print(f"Net Corpus (Shortfall) to Build: ₹{net_corpus_to_build:,.2f}") # Check for unrealistic maybe??
+
+    # d. Required SIP to cover the shortfall
+    required_retirement_sip = 0
+    if net_corpus_to_build > 0:
+        # Using numpy_financial.pmt to calculate the monthly payment
+        required_retirement_sip = npf.pmt(
+            rate=INVESTMENT_RETURN_RATE / 12, 
+            nper=years_to_retirement * 12, 
+            pv=0, 
+            fv=-net_corpus_to_build
+        )
+    print(f"Required Monthly SIP for Retirement: ₹{required_retirement_sip:,.2f}")
+    
+    # Store the results back into the state for later nodes
+    state["retirement_plan"] = {
+        "years_to_retirement": years_to_retirement,
+        "gross_corpus": gross_corpus,
+        "projected_future_assets": projected_future_assets,
+        "net_corpus_to_build": net_corpus_to_build,
+        "required_sip": required_retirement_sip
+    }
 
 
+    #4. Calculate the True "Remaining Surplus"
+    print("\n--- Calculating Remaining Surplus for Other Goals ---")
+    
+  
+    remaining_surplus = state["user_profile"]["monthly_surplus"]
+    
+ 
+    remaining_surplus -= state["retirement_plan"]["required_sip"]
+    remaining_surplus -= emergency_fund_sip
+    
+
+    state["user_profile"]["remaining_surplus"] = remaining_surplus
+    print(f"True Remaining Surplus for other goals: ₹{remaining_surplus:,.2f}")
 
 
 

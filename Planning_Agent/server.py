@@ -37,7 +37,7 @@ def collecctor():
                 "crypto": 5,
                 "other": 15
             },
-            "emergency_fund": 250000
+            "emergency_fund": 250
             },
             "liabilities": {
             "total_debt": 500000,
