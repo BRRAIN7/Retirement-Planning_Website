@@ -201,7 +201,7 @@ def finantial_calc(state:AgentState) -> AgentState:
     # 5. Process All Other User Goals
     print("\n--- Processing Other User Goals ---")
     
-    LOAN_INTEREST_RATE = 0.09 # 9% assumed for car/personal loans
+    LOAN_INTEREST_RATE = 0.09 
 
     for goal in state["goals"]:
         if "Build Emergency Fund (very crucial)" in goal["name"]:
@@ -223,7 +223,6 @@ def finantial_calc(state:AgentState) -> AgentState:
         )
         goal["inflation_adjusted_cost"] = inflation_adj_future_cost
         
-        # Handle 'Loan-Assisted' goals based on your simplified logic
         if goal["type"] == "Loan-Assisted":
             down_payment_needed = inflation_adj_future_cost * 0.20
             loan_principal_amount = inflation_adj_future_cost * 0.80
@@ -235,9 +234,8 @@ def finantial_calc(state:AgentState) -> AgentState:
                 pv=-loan_principal_amount
             )
             
-            # c. Update the goal with the required down payment and EMI
             goal["down_payment_needed"] = down_payment_needed
-            goal["estimated_emi"] = abs(estimated_emi) # Use absolute value
+            goal["estimated_emi"] = abs(estimated_emi) 
             
 
         elif goal["type"] in ["Investment", "Savings"]:
