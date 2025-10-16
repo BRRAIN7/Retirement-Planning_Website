@@ -1,0 +1,8 @@
+INFLATION_RATE = 0.06
+INVESTMENT_RETURN_RATE = 0.12 # Assumed return for new investments
+EPF_RETURN_RATE = 0.0825
+PPF_RETURN_RATE = 0.071
+NPS_RETURN_RATE = 0.10 # Assuming a moderate-risk NPS portfolio
+LOAN_INTEREST_RATE = 0.09
+
+time horizon for terms

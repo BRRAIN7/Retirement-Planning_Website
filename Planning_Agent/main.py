@@ -2,6 +2,7 @@ from typing import TypedDict
 from langgraph.graph import StateGraph,START,END
 from session_manager import insert
 import numpy_financial as npf
+from datetime import datetime
 
 from ML_models import goal_classification,risk_appetite_pred
 
@@ -197,7 +198,59 @@ def finantial_calc(state:AgentState) -> AgentState:
     state["user_profile"]["remaining_surplus"] = remaining_surplus
     print(f"True Remaining Surplus for other goals: ₹{remaining_surplus:,.2f}")
 
+    # 5. Process All Other User Goals
+    print("\n--- Processing Other User Goals ---")
+    
+    LOAN_INTEREST_RATE = 0.09 # 9% assumed for car/personal loans
 
+    for goal in state["goals"]:
+        if "Build Emergency Fund (very crucial)" in goal["name"]:
+            continue
+        #CHANGE THIS IF NEEDED
+        if "time_horizon_years" not in goal:
+            if goal["term"] == "short_term":
+                goal["time_horizon_years"] = 2
+            elif goal["term"] == "medium_term":
+                goal["time_horizon_years"] = 5
+            else: # long_term
+                goal["time_horizon_years"] = 10 
+
+        inflation_adj_future_cost = npf.fv(
+            rate=INFLATION_RATE, 
+            nper=goal["time_horizon_years"], 
+            pmt=0, 
+            pv=-goal["target_amount"]
+        )
+        goal["inflation_adjusted_cost"] = inflation_adj_future_cost
+        
+        # Handle 'Loan-Assisted' goals based on your simplified logic
+        if goal["type"] == "Loan-Assisted":
+            down_payment_needed = inflation_adj_future_cost * 0.20
+            loan_principal_amount = inflation_adj_future_cost * 0.80
+            
+            # b. Calculate the EMI for the loan portion
+            estimated_emi = npf.pmt(
+                rate=LOAN_INTEREST_RATE / 12,
+                nper=goal["time_horizon_years"] * 12,
+                pv=-loan_principal_amount
+            )
+            
+            # c. Update the goal with the required down payment and EMI
+            goal["down_payment_needed"] = down_payment_needed
+            goal["estimated_emi"] = abs(estimated_emi) # Use absolute value
+            
+
+        elif goal["type"] in ["Investment", "Savings"]:
+            required_sip = 0
+            if inflation_adj_future_cost > 0:
+                 required_sip = npf.pmt(
+                     rate=INVESTMENT_RETURN_RATE / 12,
+                     nper=goal["time_horizon_years"] * 12,
+                     pv=0,
+                     fv=-inflation_adj_future_cost
+                 )
+            
+            goal["required_monthly_investment"] = abs(required_sip)
 
 
     return state
