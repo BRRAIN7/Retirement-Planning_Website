@@ -4,77 +4,142 @@ import React, { useState } from "react";
 const App = () => {
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    // from retirement_plans
-    userName: "",
-    currentAge: "",
-    desiredRetirementAge: "",
-    monthlyIncomeInr: "",
-    annualSavingsRatePercent: "",
-    epfSavingsInr: "",
-    ppfSavingsInr: "",
-    npsSavingsInr: "",
-    otherInvestmentsInr: "",
-    elssAnnualInvestmentInr: "",
-    totalDebtInr: "",
-    debtRepaymentAnnualInr: "",
-    emergencyFundInr: "",
-    riskToleranceScore: 5,
-    maritalStatus: "",
-    numberOfChildren: "",
-    retirementLifestyleDescription: "",
-    investmentPreferences: "",
-    desiredRetirementExpensesInr: "",
-    // from goals tables
-    shortTermGoals: [],
-    midTermGoals: [],
-    longTermGoals: [],
+    personal_info: {
+      name: "",
+      current_age: "",
+      gender: "",
+      marital_status: "",
+      number_of_children: "",
+    },
+    financial_info: {
+      income: {
+        annual: "",
+      },
+      expenses: {
+        monthly_total: "",
+        components: {
+          loan_emis: "",
+          investment_sips: "",
+          misc: "",
+        },
+      },
+      assets: {
+        savings: {
+          epf: "",
+          ppf: "",
+          nps: "",
+          bank_savings: "",
+        },
+        total_investments: "",
+        portfolio_breakdown_percent: {
+          equity: "",
+          mutual_funds: "",
+          gold: "",
+          crypto: "",
+          other: "",
+        },
+        emergency_fund: "",
+      },
+      liabilities: {
+        total_debt: "",
+        monthly_debt_contribution: "",
+      },
+    },
+    goals: {
+      short_term: [],
+      medium_term: [],
+      long_term: [],
+    },
+    retirement_info: {
+      desired_retirement_age: "",
+      retirement_lifestyle_description: "",
+      desired_retirement_expenses_inr: "",
+      risk_tolerance_score: 5,
+      investment_preferences: "",
+      annual_savings_rate_percent: "",
+    },
   });
 
   const nextStep = () => setStep((prev) => prev + 1);
   const prevStep = () => setStep((prev) => prev - 1);
 
-  const handleChange = (input) => (e) => {
-    setFormData({ ...formData, [input]: e.target.value });
+  // Handles changes in nested state properties
+  const handleNestedChange = (path) => (e) => {
+    const { value, type, checked } = e.target;
+    const val = type === "checkbox" ? checked : value;
+
+    setFormData((prev) => {
+      const newState = JSON.parse(JSON.stringify(prev)); // Deep copy
+      let current = newState;
+      for (let i = 0; i < path.length - 1; i++) {
+        current = current[path[i]];
+      }
+      current[path[path.length - 1]] = val;
+      return newState;
+    });
   };
 
   // --- Goal Handlers ---
   const addGoal = (goalType) => {
-    const newGoal = { goal_name: "", description: "" };
+    const newGoal = { name: "", target_amount: "" };
     setFormData((prev) => ({
       ...prev,
-      [goalType]: [...prev[goalType], newGoal],
+      goals: {
+        ...prev.goals,
+        [goalType]: [...prev.goals[goalType], newGoal],
+      },
     }));
   };
 
   const removeGoal = (goalType, index) => {
     setFormData((prev) => ({
       ...prev,
-      [goalType]: prev[goalType].filter((_, i) => i !== index),
+      goals: {
+        ...prev.goals,
+        [goalType]: prev.goals[goalType].filter((_, i) => i !== index),
+      },
     }));
   };
 
   const handleGoalChange = (goalType, index, e) => {
     const { name, value } = e.target;
-    const updatedGoals = [...formData[goalType]];
+    const updatedGoals = [...formData.goals[goalType]];
     updatedGoals[index][name] = value;
-    setFormData({ ...formData, [goalType]: updatedGoals });
+    setFormData((prev) => ({
+      ...prev,
+      goals: { ...prev.goals, [goalType]: updatedGoals },
+    }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // In a real application, you would send this data to your backend API.
-    console.log("Final Form Data:", formData);
-    nextStep(); // Move to the success/thank you page
+    fetch("http://127.0.0.1:5000/trial", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(formData), // formData should match the backend's expected keys
+    })
+      .then((response) => {
+        if (response.status === 204) {
+          console.log("Data sent successfully");
+          nextStep();
+        } else {
+          console.error("Unexpected status:", response.status);
+        }
+      })
+      .catch((err) => console.error("Error:", err));
   };
 
+  // Render current step based on the 'step' state
   const renderStep = () => {
     switch (step) {
       case 1:
         return (
           <Step1
             nextStep={nextStep}
-            handleChange={handleChange}
-            formData={formData}
+            handleChange={handleNestedChange}
+            data={formData.personal_info}
           />
         );
       case 2:
@@ -82,8 +147,8 @@ const App = () => {
           <Step2
             nextStep={nextStep}
             prevStep={prevStep}
-            handleChange={handleChange}
-            formData={formData}
+            handleChange={handleNestedChange}
+            data={formData.financial_info}
           />
         );
       case 3:
@@ -91,46 +156,46 @@ const App = () => {
           <Step3
             nextStep={nextStep}
             prevStep={prevStep}
-            handleChange={handleChange}
-            formData={formData}
+            handleChange={handleNestedChange}
+            data={formData.financial_info.assets}
           />
         );
       case 4:
         return (
-          <Step4
+          <GoalStep
             nextStep={nextStep}
             prevStep={prevStep}
             handleGoalChange={handleGoalChange}
             addGoal={addGoal}
             removeGoal={removeGoal}
-            formData={formData}
-            goalType="shortTermGoals"
+            goals={formData.goals.short_term}
+            goalType="short_term"
             title="Short-Term Goals"
           />
         );
       case 5:
         return (
-          <Step4
+          <GoalStep
             nextStep={nextStep}
             prevStep={prevStep}
             handleGoalChange={handleGoalChange}
             addGoal={addGoal}
             removeGoal={removeGoal}
-            formData={formData}
-            goalType="midTermGoals"
-            title="Mid-Term Goals"
+            goals={formData.goals.medium_term}
+            goalType="medium_term"
+            title="Medium-Term Goals"
           />
         );
       case 6:
         return (
-          <Step4
+          <GoalStep
             nextStep={nextStep}
             prevStep={prevStep}
             handleGoalChange={handleGoalChange}
             addGoal={addGoal}
             removeGoal={removeGoal}
-            formData={formData}
-            goalType="longTermGoals"
+            goals={formData.goals.long_term}
+            goalType="long_term"
             title="Long-Term Goals"
           />
         );
@@ -139,8 +204,8 @@ const App = () => {
           <Step5
             nextStep={nextStep}
             prevStep={prevStep}
-            handleChange={handleChange}
-            formData={formData}
+            handleChange={handleNestedChange}
+            data={formData.retirement_info}
           />
         );
       case 8:
@@ -157,15 +222,14 @@ const App = () => {
         return (
           <Step1
             nextStep={nextStep}
-            handleChange={handleChange}
-            formData={formData}
+            handleChange={handleNestedChange}
+            data={formData.personal_info}
           />
         );
     }
   };
 
   const totalSteps = 9;
-  const progress = (step / totalSteps) * 100;
 
   return (
     <div className="bg-slate-100 min-h-screen flex flex-col items-center justify-center font-sans p-4">
@@ -177,37 +241,38 @@ const App = () => {
           Let's build your financial future, one step at a time.
         </p>
 
-        {/* Stepper Progress Bar */}
-        <div className="flex items-center justify-between mb-8 px-4">
-          {[...Array(totalSteps - 1)].map((_, i) => {
-            const stepCompleted = i + 1 < step;
-            const stepActive = i + 1 === step;
-            return (
-              <div key={i} className="flex-1 flex items-center">
-                {/* Circle */}
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors duration-500 ${
-                    stepCompleted
-                      ? "bg-indigo-600 border-indigo-600 text-white"
-                      : stepActive
-                      ? "border-indigo-600 text-indigo-600"
-                      : "border-slate-300 text-slate-500"
-                  }`}
-                >
-                  {i + 1}
-                </div>
-                {/* Line */}
-                {i < totalSteps - 2 && (
+        {step < totalSteps && (
+          <div className="flex items-center justify-between mb-8 px-4">
+            {[...Array(totalSteps - 1)].map((_, i) => {
+              const stepNum = i + 1;
+              const isCompleted = stepNum < step;
+              const isActive = stepNum === step;
+              return (
+                <div key={i} className="flex-1 flex items-center">
                   <div
-                    className={`flex-1 h-1 transition-all duration-500 ${
-                      i + 1 < step ? "bg-indigo-600" : "bg-slate-300"
+                    className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors duration-500 ${
+                      isCompleted
+                        ? "bg-indigo-600 border-indigo-600 text-white"
+                        : isActive
+                        ? "border-indigo-600 text-indigo-600"
+                        : "border-slate-300 text-slate-500"
                     }`}
-                  ></div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  >
+                    {stepNum}
+                  </div>
+                  {i < totalSteps - 2 && (
+                    <div
+                      className={`flex-1 h-1 transition-all duration-500 ${
+                        isCompleted ? "bg-indigo-600" : "bg-slate-300"
+                      }`}
+                    ></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="bg-white rounded-lg shadow-xl p-8">{renderStep()}</div>
       </div>
     </div>
@@ -216,318 +281,473 @@ const App = () => {
 
 // --- Step Components ---
 
-const Step1 = ({ nextStep, handleChange, formData }) => {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6 text-slate-800">
-        Basic Information
-      </h2>
-      <div className="space-y-4">
-        <InputField
-          label="Your Name"
-          name="userName"
-          value={formData.userName}
-          onChange={handleChange("userName")}
-        />
-        <InputField
-          label="Current Age"
-          name="currentAge"
-          type="number"
-          value={formData.currentAge}
-          onChange={handleChange("currentAge")}
-        />
-        <InputField
-          label="Desired Retirement Age"
-          name="desiredRetirementAge"
-          type="number"
-          value={formData.desiredRetirementAge}
-          onChange={handleChange("desiredRetirementAge")}
-        />
-        <SelectField
-          label="Marital Status"
-          name="maritalStatus"
-          value={formData.maritalStatus}
-          onChange={handleChange("maritalStatus")}
-          options={["Single", "Married", "Divorced", "Widowed"]}
-        />
-        <InputField
-          label="Number of Children"
-          name="numberOfChildren"
-          type="number"
-          value={formData.numberOfChildren}
-          onChange={handleChange("numberOfChildren")}
-        />
-      </div>
+const Step1 = ({ nextStep, handleChange, data }) => (
+  <div>
+    <h2 className="text-2xl font-semibold mb-6 text-slate-800">
+      Personal Information
+    </h2>
+    <div className="space-y-4">
+      <InputField
+        label="Your Name"
+        name="name"
+        value={data.name}
+        onChange={handleChange(["personal_info", "name"])}
+      />
+      <InputField
+        label="Current Age"
+        name="current_age"
+        type="number"
+        value={data.current_age}
+        onChange={handleChange(["personal_info", "current_age"])}
+      />
+      <SelectField
+        label="Gender"
+        name="gender"
+        value={data.gender}
+        onChange={handleChange(["personal_info", "gender"])}
+        options={["Male", "Female", "Other"]}
+      />
+      <SelectField
+        label="Marital Status"
+        name="marital_status"
+        value={data.marital_status}
+        onChange={handleChange(["personal_info", "marital_status"])}
+        options={["Single", "Married", "Divorced", "Widowed"]}
+      />
+      <InputField
+        label="Number of Children"
+        name="number_of_children"
+        type="number"
+        value={data.number_of_children}
+        onChange={handleChange(["personal_info", "number_of_children"])}
+      />
+    </div>
+    <button
+      onClick={nextStep}
+      className="mt-8 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+    >
+      Next
+    </button>
+  </div>
+);
+
+const Step2 = ({ nextStep, prevStep, handleChange, data }) => (
+  <div>
+    <h2 className="text-2xl font-semibold mb-6 text-slate-800">
+      Income & Expenses
+    </h2>
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium text-slate-600 border-b pb-2">
+        Income
+      </h3>
+      <InputField
+        label="Annual Income (INR)"
+        name="annual"
+        type="number"
+        value={data.income.annual}
+        onChange={handleChange(["financial_info", "income", "annual"])}
+      />
+
+      <h3 className="text-lg font-medium text-slate-600 border-b pb-2 mt-6">
+        Expenses & Liabilities
+      </h3>
+      <InputField
+        label="Total Monthly Expenses (INR)"
+        name="monthly_total"
+        type="number"
+        value={data.expenses.monthly_total}
+        onChange={handleChange(["financial_info", "expenses", "monthly_total"])}
+      />
+      <InputField
+        label="Loan EMIs (INR)"
+        name="loan_emis"
+        type="number"
+        value={data.expenses.components.loan_emis}
+        onChange={handleChange([
+          "financial_info",
+          "expenses",
+          "components",
+          "loan_emis",
+        ])}
+      />
+      <InputField
+        label="Investment SIPs (INR)"
+        name="investment_sips"
+        type="number"
+        value={data.expenses.components.investment_sips}
+        onChange={handleChange([
+          "financial_info",
+          "expenses",
+          "components",
+          "investment_sips",
+        ])}
+      />
+      <InputField
+        label="Miscellaneous Expenses (INR)"
+        name="misc"
+        type="number"
+        value={data.expenses.components.misc}
+        onChange={handleChange([
+          "financial_info",
+          "expenses",
+          "components",
+          "misc",
+        ])}
+      />
+      <InputField
+        label="Total Debt (INR)"
+        name="total_debt"
+        type="number"
+        value={data.liabilities.total_debt}
+        onChange={handleChange(["financial_info", "liabilities", "total_debt"])}
+      />
+      <InputField
+        label="Monthly Debt Contribution (INR)"
+        name="monthly_debt_contribution"
+        type="number"
+        value={data.liabilities.monthly_debt_contribution}
+        onChange={handleChange([
+          "financial_info",
+          "liabilities",
+          "monthly_debt_contribution",
+        ])}
+      />
+    </div>
+    <div className="flex justify-between mt-8">
+      <button
+        onClick={prevStep}
+        className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
+      >
+        Back
+      </button>
       <button
         onClick={nextStep}
-        className="mt-8 w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+        className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
       >
         Next
       </button>
     </div>
-  );
-};
+  </div>
+);
 
-const Step2 = ({ nextStep, prevStep, handleChange, formData }) => {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6 text-slate-800">
-        Financial Overview
-      </h2>
-      <div className="space-y-4">
+const Step3 = ({ nextStep, prevStep, handleChange, data }) => (
+  <div>
+    <h2 className="text-2xl font-semibold mb-6 text-slate-800">
+      Assets & Investments
+    </h2>
+    <div className="space-y-4">
+      <h3 className="text-lg font-medium text-slate-600 border-b pb-2">
+        Savings
+      </h3>
+      <InputField
+        label="EPF (INR)"
+        name="epf"
+        type="number"
+        value={data.savings.epf}
+        onChange={handleChange(["financial_info", "assets", "savings", "epf"])}
+      />
+      <InputField
+        label="PPF (INR)"
+        name="ppf"
+        type="number"
+        value={data.savings.ppf}
+        onChange={handleChange(["financial_info", "assets", "savings", "ppf"])}
+      />
+      <InputField
+        label="NPS (INR)"
+        name="nps"
+        type="number"
+        value={data.savings.nps}
+        onChange={handleChange(["financial_info", "assets", "savings", "nps"])}
+      />
+      <InputField
+        label="Bank Savings (INR)"
+        name="bank_savings"
+        type="number"
+        value={data.savings.bank_savings}
+        onChange={handleChange([
+          "financial_info",
+          "assets",
+          "savings",
+          "bank_savings",
+        ])}
+      />
+      <InputField
+        label="Emergency Fund (INR)"
+        name="emergency_fund"
+        type="number"
+        value={data.emergency_fund}
+        onChange={handleChange(["financial_info", "assets", "emergency_fund"])}
+      />
+
+      <h3 className="text-lg font-medium text-slate-600 border-b pb-2 mt-6">
+        Investments
+      </h3>
+      <InputField
+        label="Total Investments (INR)"
+        name="total_investments"
+        type="number"
+        value={data.total_investments}
+        onChange={handleChange([
+          "financial_info",
+          "assets",
+          "total_investments",
+        ])}
+      />
+      <p className="text-md font-medium text-slate-600 mt-4">
+        Portfolio Breakdown (%)
+      </p>
+      <div className="grid grid-cols-2 gap-4">
         <InputField
-          label="Monthly Income (INR)"
-          name="monthlyIncomeInr"
+          label="Equity"
+          name="equity"
           type="number"
-          value={formData.monthlyIncomeInr}
-          onChange={handleChange("monthlyIncomeInr")}
+          value={data.portfolio_breakdown_percent.equity}
+          onChange={handleChange([
+            "financial_info",
+            "assets",
+            "portfolio_breakdown_percent",
+            "equity",
+          ])}
         />
         <InputField
-          label="Annual Savings Rate (%)"
-          name="annualSavingsRatePercent"
+          label="Mutual Funds"
+          name="mutual_funds"
           type="number"
-          value={formData.annualSavingsRatePercent}
-          onChange={handleChange("annualSavingsRatePercent")}
+          value={data.portfolio_breakdown_percent.mutual_funds}
+          onChange={handleChange([
+            "financial_info",
+            "assets",
+            "portfolio_breakdown_percent",
+            "mutual_funds",
+          ])}
         />
         <InputField
-          label="Emergency Fund (INR)"
-          name="emergencyFundInr"
+          label="Gold"
+          name="gold"
           type="number"
-          value={formData.emergencyFundInr}
-          onChange={handleChange("emergencyFundInr")}
+          value={data.portfolio_breakdown_percent.gold}
+          onChange={handleChange([
+            "financial_info",
+            "assets",
+            "portfolio_breakdown_percent",
+            "gold",
+          ])}
         />
         <InputField
-          label="Total Debt (INR)"
-          name="totalDebtInr"
+          label="Crypto"
+          name="crypto"
           type="number"
-          value={formData.totalDebtInr}
-          onChange={handleChange("totalDebtInr")}
+          value={data.portfolio_breakdown_percent.crypto}
+          onChange={handleChange([
+            "financial_info",
+            "assets",
+            "portfolio_breakdown_percent",
+            "crypto",
+          ])}
         />
         <InputField
-          label="Annual Debt Repayment (INR)"
-          name="debtRepaymentAnnualInr"
+          label="Other"
+          name="other"
           type="number"
-          value={formData.debtRepaymentAnnualInr}
-          onChange={handleChange("debtRepaymentAnnualInr")}
+          value={data.portfolio_breakdown_percent.other}
+          onChange={handleChange([
+            "financial_info",
+            "assets",
+            "portfolio_breakdown_percent",
+            "other",
+          ])}
         />
-      </div>
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={prevStep}
-          className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
-        >
-          Back
-        </button>
-        <button
-          onClick={nextStep}
-          className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
-        >
-          Next
-        </button>
       </div>
     </div>
-  );
-};
-
-const Step3 = ({ nextStep, prevStep, handleChange, formData }) => {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6 text-slate-800">
-        Investments & Savings
-      </h2>
-      <div className="space-y-4">
-        <InputField
-          label="EPF Savings (INR)"
-          name="epfSavingsInr"
-          type="number"
-          value={formData.epfSavingsInr}
-          onChange={handleChange("epfSavingsInr")}
-        />
-        <InputField
-          label="PPF Savings (INR)"
-          name="ppfSavingsInr"
-          type="number"
-          value={formData.ppfSavingsInr}
-          onChange={handleChange("ppfSavingsInr")}
-        />
-        <InputField
-          label="NPS Savings (INR)"
-          name="npsSavingsInr"
-          type="number"
-          value={formData.npsSavingsInr}
-          onChange={handleChange("npsSavingsInr")}
-        />
-        <InputField
-          label="Other Investments (INR)"
-          name="otherInvestmentsInr"
-          type="number"
-          value={formData.otherInvestmentsInr}
-          onChange={handleChange("otherInvestmentsInr")}
-        />
-        <InputField
-          label="Annual ELSS Investment (INR)"
-          name="elssAnnualInvestmentInr"
-          type="number"
-          value={formData.elssAnnualInvestmentInr}
-          onChange={handleChange("elssAnnualInvestmentInr")}
-        />
-      </div>
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={prevStep}
-          className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
-        >
-          Back
-        </button>
-        <button
-          onClick={nextStep}
-          className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
-        >
-          Next
-        </button>
-      </div>
+    <div className="flex justify-between mt-8">
+      <button
+        onClick={prevStep}
+        className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
+      >
+        Back
+      </button>
+      <button
+        onClick={nextStep}
+        className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+      >
+        Next
+      </button>
     </div>
-  );
-};
+  </div>
+);
 
-const Step4 = ({
+// Reusable component for each goal type step
+const GoalStep = ({
   nextStep,
   prevStep,
   handleGoalChange,
   addGoal,
   removeGoal,
-  formData,
+  goals,
   goalType,
   title,
-}) => {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6 text-slate-800">{title}</h2>
-      {formData[goalType].map((goal, index) => (
-        <div key={index} className="p-4 border rounded-md mb-4 relative">
-          <button
-            onClick={() => removeGoal(goalType, index)}
-            className="absolute top-2 right-2 text-slate-400 hover:text-red-500"
-          >
-            &times;
-          </button>
-          <InputField
-            label="Goal Name"
-            name="goal_name"
-            value={goal.goal_name}
-            onChange={(e) => handleGoalChange(goalType, index, e)}
-          />
-          <TextAreaField
-            label="Description"
-            name="description"
-            value={goal.description}
-            onChange={(e) => handleGoalChange(goalType, index, e)}
-          />
-        </div>
-      ))}
-      <button
-        onClick={() => addGoal(goalType)}
-        className="text-indigo-600 hover:text-indigo-800 transition"
+}) => (
+  <div>
+    <h2 className="text-2xl font-semibold mb-6 text-slate-800">{title}</h2>
+    {goals.map((goal, index) => (
+      <div
+        key={index}
+        className="p-4 border rounded-md my-4 relative grid grid-cols-1 md:grid-cols-2 gap-4"
       >
-        + Add Goal
-      </button>
-      <div className="flex justify-between mt-8">
         <button
-          onClick={prevStep}
-          className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
+          onClick={() => removeGoal(goalType, index)}
+          className="absolute top-2 right-2 text-slate-400 hover:text-red-500 text-2xl leading-none"
         >
-          Back
+          &times;
         </button>
-        <button
-          onClick={nextStep}
-          className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
-        >
-          Next
-        </button>
-      </div>
-    </div>
-  );
-};
-
-const Step5 = ({ nextStep, prevStep, handleChange, formData }) => {
-  return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6 text-slate-800">
-        Lifestyle & Preferences
-      </h2>
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Risk Tolerance (1-10)
-          </label>
-          <input
-            type="range"
-            min="1"
-            max="10"
-            name="riskToleranceScore"
-            value={formData.riskToleranceScore}
-            onChange={handleChange("riskToleranceScore")}
-            className="w-full"
-          />
-          <p className="text-center">{formData.riskToleranceScore}</p>
-        </div>
-        <TextAreaField
-          label="Desired Retirement Lifestyle"
-          name="retirementLifestyleDescription"
-          value={formData.retirementLifestyleDescription}
-          onChange={handleChange("retirementLifestyleDescription")}
-        />
-        <TextAreaField
-          label="Investment Preferences (e.g., Stocks, Bonds, Real Estate)"
-          name="investmentPreferences"
-          value={formData.investmentPreferences}
-          onChange={handleChange("investmentPreferences")}
+        <InputField
+          label="Goal Name"
+          name="name"
+          value={goal.name}
+          onChange={(e) => handleGoalChange(goalType, index, e)}
         />
         <InputField
-          label="Desired Monthly Expenses in Retirement (INR)"
-          name="desiredRetirementExpensesInr"
+          label="Target Amount (INR)"
+          name="target_amount"
           type="number"
-          value={formData.desiredRetirementExpensesInr}
-          onChange={handleChange("desiredRetirementExpensesInr")}
+          value={goal.target_amount}
+          onChange={(e) => handleGoalChange(goalType, index, e)}
         />
       </div>
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={prevStep}
-          className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
-        >
-          Back
-        </button>
-        <button
-          onClick={nextStep}
-          className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
-        >
-          Next
-        </button>
-      </div>
+    ))}
+    <button
+      onClick={() => addGoal(goalType)}
+      className="text-indigo-600 hover:text-indigo-800 transition"
+    >
+      + Add Goal
+    </button>
+    <div className="flex justify-between mt-8">
+      <button
+        onClick={prevStep}
+        className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
+      >
+        Back
+      </button>
+      <button
+        onClick={nextStep}
+        className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+      >
+        Next
+      </button>
     </div>
-  );
+  </div>
+);
+
+const Step5 = ({ nextStep, prevStep, handleChange, data }) => (
+  <div>
+    <h2 className="text-2xl font-semibold mb-6 text-slate-800">
+      Retirement Preferences
+    </h2>
+    <div className="space-y-4">
+      <InputField
+        label="Desired Retirement Age"
+        name="desired_retirement_age"
+        type="number"
+        value={data.desired_retirement_age}
+        onChange={handleChange(["retirement_info", "desired_retirement_age"])}
+      />
+      <InputField
+        label="Desired Monthly Expenses in Retirement (INR)"
+        name="desired_retirement_expenses_inr"
+        type="number"
+        value={data.desired_retirement_expenses_inr}
+        onChange={handleChange([
+          "retirement_info",
+          "desired_retirement_expenses_inr",
+        ])}
+      />
+      <InputField
+        label="Annual Savings Rate (%)"
+        name="annual_savings_rate_percent"
+        type="number"
+        value={data.annual_savings_rate_percent}
+        onChange={handleChange([
+          "retirement_info",
+          "annual_savings_rate_percent",
+        ])}
+      />
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Risk Tolerance ({data.risk_tolerance_score})
+        </label>
+        <input
+          type="range"
+          min="1"
+          max="10"
+          name="risk_tolerance_score"
+          value={data.risk_tolerance_score}
+          onChange={handleChange(["retirement_info", "risk_tolerance_score"])}
+          className="w-full"
+        />
+      </div>
+      <SelectField
+        label="Investment Preferences"
+        name="investment_preferences"
+        value={data.investment_preferences}
+        onChange={handleChange(["retirement_info", "investment_preferences"])}
+        options={[
+          "Saving",
+          "Conservative",
+          "Balanced",
+          "Growth",
+          "Aggressive Growth",
+        ]}
+      />
+      <TextAreaField
+        label="Desired Retirement Lifestyle"
+        name="retirement_lifestyle_description"
+        value={data.retirement_lifestyle_description}
+        onChange={handleChange([
+          "retirement_info",
+          "retirement_lifestyle_description",
+        ])}
+      />
+    </div>
+    <div className="flex justify-between mt-8">
+      <button
+        onClick={prevStep}
+        className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
+      >
+        Back
+      </button>
+      <button
+        onClick={nextStep}
+        className="bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 transition"
+      >
+        Next
+      </button>
+    </div>
+  </div>
+);
+
+// A helper function to format keys for display
+const formatKey = (key) => {
+  return key.replace(/_/g, " ").replace(/\b\w/g, (char) => char.toUpperCase());
 };
 
-const Summary = ({ prevStep, formData, handleSubmit }) => {
+// A recursive component to display nested summary data
+const SummaryRenderer = ({ data, level = 0 }) => {
   return (
-    <div>
-      <h2 className="text-2xl font-semibold mb-6 text-slate-800">
-        Review Your Plan
-      </h2>
-      <div className="space-y-2 bg-slate-50 p-4 rounded-md">
-        {Object.entries(formData).map(([key, value]) => {
-          if (typeof value === "object" && value !== null) {
+    <div className={`${level > 0 ? "pl-4" : ""}`}>
+      {Object.entries(data).map(([key, value]) => {
+        if (typeof value === "object" && value !== null) {
+          if (Array.isArray(value)) {
             return (
-              <div key={key}>
-                <p className="font-semibold capitalize">
-                  {key.replace(/([A-Z])/g, " $1")}:
+              <div key={key} className="mt-2">
+                <p className="font-semibold text-slate-700">
+                  {formatKey(key)}:
                 </p>
                 {value.length > 0 ? (
-                  <ul className="list-disc list-inside pl-4">
+                  <ul className="list-disc list-inside pl-4 text-slate-600">
                     {value.map((item, index) => (
                       <li key={index}>
-                        {item.goal_name}: {item.description}
+                        {item.name} - ₹{item.target_amount}
                       </li>
                     ))}
                   </ul>
@@ -538,35 +758,52 @@ const Summary = ({ prevStep, formData, handleSubmit }) => {
             );
           }
           return (
-            <p key={key}>
-              <span className="font-semibold capitalize">
-                {key.replace(/([A-Z])/g, " $1")}:
-              </span>{" "}
-              {String(value)}
-            </p>
+            <div key={key} className="mt-2">
+              <p className="font-semibold text-slate-700">{formatKey(key)}:</p>
+              <SummaryRenderer data={value} level={level + 1} />
+            </div>
           );
-        })}
-      </div>
-      <div className="flex justify-between mt-8">
-        <button
-          onClick={prevStep}
-          className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
-        >
-          Back
-        </button>
-        <button
-          onClick={handleSubmit}
-          className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition"
-        >
-          Submit Plan
-        </button>
-      </div>
+        }
+        return (
+          <p key={key} className="text-slate-600">
+            <span className="font-semibold text-slate-700">
+              {formatKey(key)}:
+            </span>{" "}
+            {String(value) || "N/A"}
+          </p>
+        );
+      })}
     </div>
   );
 };
 
+const Summary = ({ prevStep, formData, handleSubmit }) => (
+  <div>
+    <h2 className="text-2xl font-semibold mb-6 text-slate-800">
+      Review Your Plan
+    </h2>
+    <div className="space-y-4 bg-slate-50 p-6 rounded-md">
+      <SummaryRenderer data={formData} />
+    </div>
+    <div className="flex justify-between mt-8">
+      <button
+        onClick={prevStep}
+        className="bg-slate-300 text-slate-800 py-2 px-4 rounded-md hover:bg-slate-400 transition"
+      >
+        Back
+      </button>
+      <button
+        onClick={handleSubmit}
+        className="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition"
+      >
+        Submit Plan
+      </button>
+    </div>
+  </div>
+);
+
 const Success = () => (
-  <div className="text-center">
+  <div className="text-center py-8">
     <h2 className="text-2xl font-semibold mb-4 text-slate-800">Thank You!</h2>
     <p className="text-slate-600">
       Your retirement plan has been submitted. We will be in touch shortly.
