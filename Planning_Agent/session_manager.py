@@ -1,98 +1,154 @@
 import mysql.connector
+from decimal import Decimal
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',
+    'password': '@mysql',
+    'database': 'sessioninformation'
+}
+
+# -----------------------------------------------
+## Data Preparation (Helper Function)
+# -----------------------------------------------
+def _prepare_full_data_for_db(state):
+    """
+    Extracts and maps ALL financial data from the complex input dictionary (state)
+    to the flat structures required by ALL six MySQL tables.
+    """
+    input_data = state['input_data']
+    financial = input_data['financial_info']
+    
+    # 1. user_profile Data
+    personal = input_data['personal_info']
+    profile_data = {
+        'name': personal.get('name'),
+        'age': personal.get('current_age'),
+        'gender': personal.get('gender'),
+        'marital_status': personal.get('marital_status'),
+        'number_of_children': personal.get('number_of_children'),
+        'risk_appetite': state.get('risk_appetite', 'unknown') 
+    }
+
+    # 2. income Data
+    income_data = {
+        'annual_income': Decimal(financial['income'].get('annual', 0))
+    }
+
+    # 3. liabilities Data
+    liabilities_source = financial['liabilities']
+    liabilities_data = {
+        'total_debt': Decimal(liabilities_source.get('total_debt', 0)),
+        'monthly_debt_contribution': Decimal(liabilities_source.get('monthly_debt_contribution', 0))
+    }
+
+    # 4. assets Data
+    assets_source = financial['assets']
+    savings = assets_source['savings']
+    portfolio = assets_source['portfolio_breakdown_percent']
+    
+    assets_data = {
+        'epf': Decimal(savings.get('epf', 0)),
+        'ppf': Decimal(savings.get('ppf', 0)),
+        'nps': Decimal(savings.get('nps', 0)),
+        'bank_savings': Decimal(savings.get('bank_savings', 0)),
+        'total_investments': Decimal(assets_source.get('total_investments', 0)),
+        'equity_percent': Decimal(portfolio.get('equity', 0)),
+        'mutual_funds_percent': Decimal(portfolio.get('mutual_funds', 0)),
+        'gold_percent': Decimal(portfolio.get('gold', 0)),
+        'crypto_percent': Decimal(portfolio.get('crypto', 0)),
+        'other_percent': Decimal(portfolio.get('other', 0)),
+        'emergency_fund': Decimal(assets_source.get('emergency_fund', 0))
+    }
+
+    # 5. expenses Data
+    expenses_source = financial['expenses']
+    components = expenses_source['components']
+    
+    expenses_data = {
+        'monthly_total': Decimal(expenses_source.get('monthly_total', 0)),
+        'loan_emis': Decimal(components.get('loan_emis', 0)),
+        'investment_sips': Decimal(components.get('investment_sips', 0)),
+        'misc': Decimal(components.get('misc', 0))
+    }
+
+    # 6. goals Data
+    goals_list_db = []
+    for goal in state.get('goals', []):
+        goals_list_db.append({
+            'name': goal.get('name'),
+            'term': goal.get('term'),
+            'target_amount': Decimal(goal.get('target_amount', 0)),
+            'type': goal.get('type')
+        })
+    
+    return profile_data, income_data, liabilities_data, assets_data, expenses_data, goals_list_db
 
 
-def insert(state) :
-    print("Inserting session data into MySQL database...")
-
-    conn = None
-    cursor = None
-
+# -----------------------------------------------
+## Main Insertion Function (Updated to insert ALL tables)
+# -----------------------------------------------
+def insert(state):
+    """
+    Parses the state dictionary and inserts data into ALL six tables.
+    """
+    profile_data, income_data, liabilities_data, assets_data, expenses_data, goals_list = _prepare_full_data_for_db(state)
+    
+    db_connection = None
     try:
-        conn = mysql.connector.connect(
-            host="localhost",
-            user="root",
-            password="@mysql",
-            database="SessionInformation"
-        )
-        cursor = conn.cursor()
+        db_connection = mysql.connector.connect(**DB_CONFIG)
+        cursor = db_connection.cursor()
+        print("Database connection established.")
 
-        # Extract data from state
-        user_profile = state.get("user_profile", {})
-        goals = state.get("goals", [])
+        # --- A. Insert user_profile ---
+        print("1. Inserting user profile...")
+        profile_sql = "INSERT INTO user_profile (name, age, gender, marital_status, number_of_children, risk_appetite) VALUES (%s, %s, %s, %s, %s, %s)"
+        cursor.execute(profile_sql, tuple(profile_data.values()))
+        user_id = cursor.lastrowid
+        print(f"   User profile inserted. New user_id: {user_id}")
 
-        print("User profile:", user_profile)
-        print("Goals:", goals)
+        # --- B. Insert income ---
+        print("2. Inserting income data...")
+        income_sql = "INSERT INTO income (user_id, annual_income) VALUES (%s, %s)"
+        cursor.execute(income_sql, (user_id, income_data['annual_income']))
 
-        # Prepare user data
-        user_name = user_profile.get("name", "Unknown")
-        current_age = user_profile.get("age", 0)
-        desired_retirement_age = user_profile.get("desired_retirement_age", 65)
-        monthly_income_inr = user_profile.get("monthly_income_inr", 10000)
-        annual_savings_rate_percent = user_profile.get("annual_savings_rate_percent", 0)
-        marital_status = user_profile.get("marital_status", "Unknown")
-        number_of_children = user_profile.get("number_of_children", 0)
-        retirement_lifestyle_description = user_profile.get("retirement_lifestyle_description", "")
-        investment_preferences = user_profile.get("investment_preferences", "")
-        desired_retirement_expenses_inr = user_profile.get("desired_retirement_expenses_inr", 0)
+        # --- C. Insert liabilities ---
+        print("3. Inserting liabilities data...")
+        liab_sql = "INSERT INTO liabilities (user_id, total_debt, monthly_debt_contribution) VALUES (%s, %s, %s)"
+        liab_values = (user_id, liabilities_data['total_debt'], liabilities_data['monthly_debt_contribution'])
+        cursor.execute(liab_sql, liab_values)
 
-        # Insert user profile into retirement_plans
-        cursor.execute('''
-            INSERT INTO retirement_plans (
-                user_name, current_age, desired_retirement_age, monthly_income_inr,
-                annual_savings_rate_percent, marital_status, number_of_children,
-                retirement_lifestyle_description, investment_preferences, desired_retirement_expenses_inr
-            )
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (
-            user_name, current_age, desired_retirement_age, monthly_income_inr,
-            annual_savings_rate_percent, marital_status, number_of_children,
-            retirement_lifestyle_description, investment_preferences, desired_retirement_expenses_inr
-        ))
-        print("Inserted user profile into retirement_plans table.")
+        # --- D. Insert assets ---
+        print("4. Inserting assets data...")
+        asset_fields = ', '.join(assets_data.keys())
+        asset_placeholders = ', '.join(['%s'] * len(assets_data))
+        asset_sql = f"INSERT INTO assets (user_id, {asset_fields}) VALUES (%s, {asset_placeholders})"
+        asset_values = (user_id,) + tuple(assets_data.values())
+        cursor.execute(asset_sql, asset_values)
+        
+        # --- E. Insert expenses ---
+        print("5. Inserting expenses data...")
+        expense_sql = "INSERT INTO expenses (user_id, monthly_total, loan_emis, investment_sips, misc) VALUES (%s, %s, %s, %s, %s)"
+        expense_values = (user_id, expenses_data['monthly_total'], expenses_data['loan_emis'], expenses_data['investment_sips'], expenses_data['misc'])
+        cursor.execute(expense_sql, expense_values)
 
-        # Insert goals into respective tables
-        cursor.execute("SELECT LAST_INSERT_ID()")
-        plan_id = cursor.fetchone()[0]
-        print("Inserted retirement plan with plan_id:", plan_id)
+        # --- F. Insert goals ---
+        print(f"6. Inserting {len(goals_list)} goals...")
+        goal_sql = "INSERT INTO goals (user_id, name, term, target_amount, type) VALUES (%s, %s, %s, %s, %s)"
+        for goal in goals_list:
+            goal_values = (user_id, goal['name'], goal['term'], goal['target_amount'], goal['type'])
+            cursor.execute(goal_sql, goal_values)
 
-        for goal in goals:
-            category = goal.get("category", "").lower()
-            goal_name = goal.get("name", "")
-            description = f"Target amount: {goal.get('target_amount', 0)}"
-
-            if category == "short_term":
-                cursor.execute('''
-                    INSERT INTO short_term_goals (plan_id, goal_name, description)
-                    VALUES (%s, %s, %s)
-                ''', (plan_id, goal_name, description))
-                print(f"Inserted short-term goal: {goal_name}, description: {description}")
-
-            elif category == "medium_term":
-                cursor.execute('''
-                    INSERT INTO mid_term_goals (plan_id, goal_name, description)
-                    VALUES (%s, %s, %s)
-                ''', (plan_id, goal_name, description))
-                print(f"Inserted medium-term goal: {goal_name}, description: {description}")
-
-            elif category == "long_term":
-                cursor.execute('''
-                    INSERT INTO long_term_goals (plan_id, goal_name, description)
-                    VALUES (%s, %s, %s)
-                ''', (plan_id, goal_name, description))
-                print(f"Inserted long-term goal: {goal_name}, description: {description}")
-
-
-        conn.commit()
-        print("All data committed successfully.")
+        db_connection.commit()
+        print("\nAll SIX tables successfully populated and committed. ✅")
 
     except mysql.connector.Error as err:
-        print(f"Error: {err}")
-
+        print(f"\nError inserting data: {err}")
+        if db_connection:
+            db_connection.rollback()
+            print("Transaction rolled back. ❌")
+    
     finally:
-        if conn and conn.is_connected():
+        if db_connection and db_connection.is_connected():
             cursor.close()
-            conn.close()
+            db_connection.close()
             print("MySQL connection closed.")
-
-
-
