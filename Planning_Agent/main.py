@@ -6,6 +6,8 @@ from datetime import datetime
 
 from ML_models import goal_classification,risk_appetite_pred
 
+import ollama 
+
 
 class AgentState(TypedDict):
     input_data:dict 
@@ -16,6 +18,7 @@ class AgentState(TypedDict):
 
     user_profile:dict
     goals: list[dict]
+    retirement_plan:dict
 
 
 
@@ -35,6 +38,7 @@ def input_collector(state:AgentState) ->AgentState :
         "expenses": input_data.get("financial_info", {}).get("expenses", {}),
         "assets": input_data.get("financial_info", {}).get("assets", {}),
         "liabilities": input_data.get("financial_info", {}).get("liabilities", {}),
+        "retirement_info": input_data.get("retirement_info", {})
     }
 
     
@@ -45,7 +49,7 @@ def input_collector(state:AgentState) ->AgentState :
     for category, goals_list in goals.items():
         for g in goals_list:
             collected_goals.append({
-                "category": category,  
+                "term": category,  
                 "name": g.get("name"),
                 "target_amount": g.get("target_amount")
             })
@@ -129,10 +133,12 @@ def finantial_calc(state:AgentState) -> AgentState:
 
     #3 Perform the Complete Retirement Calculation
     current_age = state["user_profile"]["age"]
-    desired_retirement_age = state["input_data"]["retirement_info"]["desired_retirement_age"]
+    
+    desired_retirement_age = state["user_profile"]["retirement_info"]["desired_retirement_age"]
+
     years_to_retirement = desired_retirement_age - current_age
     
-    desired_monthly_expenses = state["input_data"]["retirement_info"]["desired_retirement_expenses_inr"]
+    desired_monthly_expenses = state["user_profile"]["retirement_info"]["desired_retirement_expenses_inr"]
     current_annual_base_expense = desired_monthly_expenses * 12
 
     # a. Gross Corpus Calculation
