@@ -5,6 +5,7 @@ import numpy_financial as npf
 from datetime import datetime
 
 from ML_models import goal_classification,risk_appetite_pred
+from prompts import create_master_prompt
 
 import ollama 
 
@@ -265,8 +266,40 @@ def feasibility_checker(state:AgentState) ->AgentState :
     return state
 
 def plan_generator(state:AgentState) ->AgentState :
+    ###################################   Hardcoded for testing   ########################################################
+    state["feasibility"]={
+        "Build Emergency Fund (very crucial)": {
+            "status": "Healthy_&_Achievable"
+        },
+        "International Vacation": {
+            "status": "Unrealistic",
+            "warning": "This goal is not affordable with your current remaining surplus."
+        },
+        "Buy a Car": {
+            "status": "Unrealistic",
+            "warning": "This goal is not affordable with your current remaining surplus."
+        },
+        "Child's Higher Education": {
+            "status": "Unrealistic",
+            "warning": "This goal is not affordable with your current remaining surplus."
+        }
+    }
+    #################################################################################################
+
     print(" ")
     print("==========================Inside Plan generator==========================")
+
+    final_prompt= create_master_prompt(state)
+    result= ollama.chat(
+        model="phi3:mini",
+        messages=[{ "role":"user" ,"content" :final_prompt }],
+        stream=True
+    )
+
+    for i in result:
+        print(i["message"]["content"], end="", flush=True)
+    
+
     return state
 
 def output(state:AgentState)-> AgentState:
