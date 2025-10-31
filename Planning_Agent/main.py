@@ -76,12 +76,44 @@ def goal_classifier(state: AgentState)->AgentState:
 
 def risk_predictor(state:AgentState) ->AgentState :
     print(" ")
-    print("==========================Inside Risk Predictor==========================")    
-    risk= risk_appetite_pred()
-    state["risk_appetite"]=risk
-    print(f"Risk of the user is :{risk}")
-    return state
+    print("==========================Inside Risk Predictor==========================")
+    
+    # 1. Build the data dictionary from the state.
+    #    This pulls the 10 required features from the full user_profile.
+    try:
+        profile = state['user_profile']
+        user_data = {
+            'current_age': profile['age'],
+            'number_of_children': profile['number_of_children'],
+            'desired_retirement_age': profile['retirement_info']['desired_retirement_age'],
+            'annual_income': profile['income']['annual'],
+            'total_debt': profile['liabilities']['total_debt'],
+            'emergency_fund': profile['assets']['emergency_fund'],
+            'portfolio_percent_equity': profile['assets']['portfolio_breakdown_percent']['equity'],
+            'portfolio_percent_crypto': profile['assets']['portfolio_breakdown_percent']['crypto'],
+            'portfolio_percent_gold': profile['assets']['portfolio_breakdown_percent']['gold'],
+            
+            # Get the first short-term goal amount, or 0 if none
+            'short_term_goal_amount': state['goals'][0]['target_amount'] if state['goals'] and state['goals'][0]['term'] == 'short_term' else 0
+        }
+    except KeyError as e:
+        print(f"CRITICAL ERROR in risk_predictor: Missing key {e} in state.")
+        print("Cannot calculate risk. Returning 'Medium' as default.")
+        state["risk_appetite"] = "Medium"
+        return state
+    except Exception as e:
+        print(f"CRITICAL ERROR formatting data for model: {e}")
+        state["risk_appetite"] = "Medium"
+        return state
 
+    # 2. Call the prediction function WITH the data
+    risk = risk_appetite_pred(user_data) # This now passes the data
+    
+    # 3. Store the result back into the state
+    state["risk_appetite"] = risk
+    print(f"Risk of the user is :{risk}")
+    
+    return state
 
 def session_updater(state: AgentState) -> AgentState:
     print(" ")
@@ -98,7 +130,7 @@ PPF_RETURN_RATE = 0.071
 NPS_RETURN_RATE = 0.10 # Assuming a moderate-risk NPS portfolio
 def finantial_calc(state:AgentState) -> AgentState:
     print(" ")
-    print("==========================Inside Finantial Calculator==========================")
+    print("==========================Inside Financial Calculator==========================")
 
 
     #1. calc the monthly surplus --> monthlyincome - monthly expenses
