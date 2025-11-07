@@ -321,15 +321,15 @@ def plan_generator(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Plan generator==========================")
 
-    final_prompt= create_master_prompt(state)
-    result= ollama.chat(
-        model="phi3:mini",
-        messages=[{ "role":"user" ,"content" :final_prompt }],
-        stream=True
-    )
+    # final_prompt= create_master_prompt(state)
+    # result= ollama.chat(
+    #     model="phi3:mini",
+    #     messages=[{ "role":"user" ,"content" :final_prompt }],
+    #     stream=True
+    # )
 
-    for i in result:
-        print(i["message"]["content"], end="", flush=True)
+    # for i in result:
+    #     print(i["message"]["content"], end="", flush=True)
     
 
     return state
