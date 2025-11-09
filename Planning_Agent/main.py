@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph,START,END
 from session_manager import insert
 import numpy_financial as npf
 from datetime import datetime
+from feasibility import warnings_generator
 
 from ML_models import get_goal_classification,risk_appetite_pred
 from prompts import create_master_prompt
@@ -314,6 +315,8 @@ def finantial_calc(state:AgentState) -> AgentState:
 def feasibility_checker(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Feasibility checker==========================")
+    feasibility_report = warnings_generator(state)
+    state['feasibility'] = feasibility_report
     return state
 
 def plan_generator(state:AgentState) ->AgentState :
