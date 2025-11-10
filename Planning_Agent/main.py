@@ -3,8 +3,9 @@ from langgraph.graph import StateGraph,START,END
 from session_manager import insert
 import numpy_financial as npf
 from datetime import datetime
+from feasibility import warnings_generator
 
-from ML_models import goal_classification,risk_appetite_pred
+from ML_models import get_goal_classification,risk_appetite_pred
 from prompts import create_master_prompt
 
 import ollama 
@@ -68,9 +69,28 @@ def input_collector(state:AgentState) ->AgentState :
 def goal_classifier(state: AgentState)->AgentState:
     print(" ")
     print("==========================Inside Goal Classifier ==========================")
-    state["goals"]=goal_classification(state)
     
-    print("Agent state after classificatino:  ",state["goals"])
+    # We will loop through the goals and add the 'type' to each one
+    updated_goals = []
+    
+    for goal in state["goals"]:
+        # 1. Get the features the model needs
+        # Your model expects 'goal_text', 'target_amount', 'goal_term'
+        goal_text = goal["name"] 
+        target_amount = goal["target_amount"]
+        goal_term = goal["term"] # This comes from your input_collector
+        
+        # 2. Call the prediction function from MLmodels.py
+        predicted_type = get_goal_classification(goal_text, target_amount, goal_term)
+        
+        # 3. Add the new 'type' to the goal dictionary
+        goal['type'] = predicted_type
+        updated_goals.append(goal)
+
+    # 4. Save the enriched list back to the state
+    state["goals"] = updated_goals
+    
+    print("Agent state after classification: ", state["goals"])
     return state
 
 
@@ -295,6 +315,8 @@ def finantial_calc(state:AgentState) -> AgentState:
 def feasibility_checker(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Feasibility checker==========================")
+    feasibility_report = warnings_generator(state)
+    state['feasibility'] = feasibility_report
     return state
 
 def plan_generator(state:AgentState) ->AgentState :

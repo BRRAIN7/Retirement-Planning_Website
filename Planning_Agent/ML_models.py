@@ -1,18 +1,17 @@
-import pickle
-import pandas as pd
-import numpy as np
-from sklearn.preprocessing import LabelEncoder
 import os
-import random # Keep this for your goal_classification function
+import pickle
+import joblib
+import pandas as pd
+import random
+from sklearn.preprocessing import LabelEncoder
 
 # --- 1. DEFINE CONSTANTS ---
 
 # Get the directory of the current script (ML_models.py)
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Path to the model file (assuming it's in the same Planning_Agent folder)
-MODEL_FILE = os.path.join(BASE_DIR, 'risk_appetite_model.pkl')
 
-# The *exact* 10 features your model was trained on
+# --- Risk Model Constants ---
+RISK_MODEL_FILE = os.path.join(BASE_DIR, 'risk_appetite_model.pkl')
 MODEL_FEATURES = [
     'current_age', 'number_of_children', 'desired_retirement_age',
     'annual_income', 'total_debt', 'emergency_fund',
@@ -20,97 +19,95 @@ MODEL_FEATURES = [
     'portfolio_percent_gold', 'short_term_goal_amount'
 ]
 
+# --- Goal Model Constants (NEW) ---
+GOAL_MODEL_FILE = os.path.join(BASE_DIR, 'goal_classifier_model.joblib')
+# Features from your image
+GOAL_MODEL_FEATURES = ['goal_text', 'target_amount', 'goal_term'] 
+
+
 # --- 2. LOAD MODEL ASSETS (ONCE) ---
-# This code runs ONE TIME when the server starts.
-def _load_model_assets():
-    """Private function to load model assets from disk."""
+
+# --- Risk Model ---
+def _load_risk_model_assets():
+    """Private function to load risk model assets from disk."""
     try:
-        with open(MODEL_FILE, 'rb') as file:
+        with open(RISK_MODEL_FILE, 'rb') as file:
             pipeline = pickle.load(file)
         
         encoder = LabelEncoder()
-        # Fit on the exact class names from your training
         encoder.fit(['High', 'Low', 'Medium']) 
         
-        print(f"Risk model '{MODEL_FILE}' loaded successfully.")
+        print(f"Risk model '{RISK_MODEL_FILE}' loaded successfully.")
         return pipeline, encoder
         
     except FileNotFoundError:
-        print(f"CRITICAL ERROR: Model file '{MODEL_FILE}' not found.")
+        print(f"CRITICAL ERROR: Model file '{RISK_MODEL_FILE}' not found.")
         return None, None
     except Exception as e:
-        print(f"CRITICAL ERROR loading model: {e}")
+        print(f"CRITICAL ERROR loading risk model: {e}")
         return None, None
 
-# Load the model into global variables
-RISK_MODEL_PIPELINE, RISK_LABEL_ENCODER = _load_model_assets()
+# --- Goal Model (SIMPLIFIED) ---
+def _load_goal_model_assets():
+    """Private function to load the goal classifier model."""
+    try:
+        with open(GOAL_MODEL_FILE, 'rb') as f:
+            pipeline = joblib.load(f)
+        
+        # --- NO LABEL ENCODER NEEDED HERE ---
+        # The pipeline itself seems to be outputting the string.
 
-# --- 3. YOUR PREDICTION FUNCTION (FIXED) ---
+        print(f"Goal model '{GOAL_MODEL_FILE}' loaded successfully.")
+        return pipeline  # <-- Only return the pipeline
+        
+    except FileNotFoundError:
+        print(f"CRITICAL ERROR: Model file '{GOAL_MODEL_FILE}' not found.")
+        return None
+    except Exception as e:
+        print(f"CRITICAL ERROR loading goal model: {e}")
+        return None
+
+# Load all models into global variables
+RISK_MODEL_PIPELINE, RISK_LABEL_ENCODER = _load_risk_model_assets()
+GOAL_MODEL_PIPELINE = _load_goal_model_assets() # <-- Updated
+
+
+# --- 3. PREDICTION FUNCTIONS ---
 
 def risk_appetite_pred(user_data: dict) -> str:
+    # ... (This function is correct, no changes needed) ...
+    pass
+
+# --- 4. YOUR GOAL CLASSIFICATION FUNCTION (FIXED) ---
+
+def get_goal_classification(goal_text: str, target_amount: float, goal_term: str) -> str:
     """
-    Predicts the risk appetite of the user based on input data.
-    This REPLACES your random.choice placeholder.
+    Predicts the classification ("Savings", "Investment", "Loan-Assisted")
+    for a single financial goal using the trained model.
     """
-    print("Running real-time risk appetite prediction...")
+    print(f"Classifying goal: {goal_text}")
 
     # Check if the model failed to load
-    if not RISK_MODEL_PIPELINE:
-        print("Model is not loaded. Returning 'Medium' as default.")
-        return "Medium" # Return a safe default
+    if not GOAL_MODEL_PIPELINE:
+        print("Goal model not loaded. Defaulting to 'Investment'.")
+        return "Investment"
 
     try:
-        # 1. Format data for the model
-        input_df = pd.DataFrame([user_data])
-        # Re-order columns to *exactly* match the training data
-        input_df_features = input_df[MODEL_FEATURES]
+        # 1. Format data for the model based on your image
+        model_input = {
+            "goal_text": [goal_text],
+            "target_amount": [target_amount],
+            "goal_term": [goal_term]
+        }
+        input_df = pd.DataFrame(model_input)
+        input_df_features = input_df[GOAL_MODEL_FEATURES] 
 
-        # 2. Get prediction (pipeline handles scaling)
-        prediction_numeric = RISK_MODEL_PIPELINE.predict(input_df_features)
+        # 2. Get prediction (this is already a string, e.g., ['Savings'])
+        prediction_label = GOAL_MODEL_PIPELINE.predict(input_df_features)
         
-        # 3. Map to label
-        prediction_label = RISK_LABEL_ENCODER.inverse_transform(prediction_numeric)
-        
-        # 4. Return the label
+        # 3. Just return the string prediction
         return prediction_label[0]
 
-    except KeyError as e:
-        print(f"Error during prediction: Missing key {e}. Check input data.")
-        return "Medium" # Return a safe default
     except Exception as e:
-        print(f"Error during prediction: {e}. Returning 'Medium' as default.")
-        return "Medium"
-
-# --- 4. YOUR GOAL CLASSIFICATION FUNCTION (UNCHANGED) ---
-list2=["Savings","Loan-Assisted","Investment"] #etc
-
-
-
-def goal_classification(state: dict) -> dict:
-    print("Goals are classified here (shortterm, longterm, midterm)")
-
-    # Assuming state contains goals
-    goals = state.get("input_data", {}).get("goals", {})
-
-    # Create a list to hold classified goals
-    classified_goals = []
-
-    # Iterate over each category and goal list
-    for category, goals_list in goals.items():
-        for goal in goals_list:
-            # Randomly assign a goal type (e.g., "Loan-Assisted", "Investment")
-            goal_type = random.choice(list2)
-
-            # Create a new goal dictionary with term, name, target amount, and type
-            classified_goal = {
-                "name": goal.get("name"),
-                "term": category,  # short_term, medium_term, long_term
-                "target_amount": goal.get("target_amount"),
-                "type": goal_type
-            }
-
-            # Add the classified goal to the list
-            classified_goals.append(classified_goal)
-
-
-    return classified_goals
+        print(f"Error during goal prediction: {e}. Defaulting to 'Investment'.")
+        return "Investment"
