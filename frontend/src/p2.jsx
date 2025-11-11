@@ -26,6 +26,7 @@ const SummaryCard = ({ icon, title, value, valueColor }) => {
 const P2 = () => {
   const { state } = useLocation();
   const formData = state?.formData;
+  const aiPlan = state?.aiPlan; // ✅ added line
 
   // --- AI Insight State ---
   const [agentOutput, setAgentOutput] = useState(null);
@@ -49,13 +50,11 @@ const P2 = () => {
     if (formData) {
       const { personal_info, financial_info, retirement_info } = formData;
 
-      // --- Calculate Years to Retirement ---
       const currentAge = parseInt(personal_info.current_age || 0);
       const retireAge = parseInt(retirement_info.desired_retirement_age || 0);
       const yearsToRetirement =
         retireAge > currentAge ? retireAge - currentAge : 0;
 
-      // --- Calculate Current Assets ---
       const s = financial_info.assets.savings;
       const currentAssets =
         parseFloat(s.epf || 0) +
@@ -64,12 +63,10 @@ const P2 = () => {
         parseFloat(s.bank_savings || 0) +
         parseFloat(financial_info.assets.total_investments || 0);
 
-      // --- Retirement Goal (Desired monthly expenses) ---
       const retirementGoal = parseFloat(
         retirement_info.desired_retirement_expenses_inr || 0
       );
 
-      // --- Risk Tolerance ---
       const riskToleranceScore = parseInt(
         retirement_info.risk_tolerance_score || 5
       );
@@ -78,15 +75,13 @@ const P2 = () => {
       else if (riskToleranceScore <= 7) riskTolerance = "Balanced";
       else riskTolerance = "Aggressive";
 
-      // --- Projected Savings (simple linear projection) ---
       const annualIncome = parseFloat(financial_info.income.annual || 0);
       const annualSavingsRate = parseFloat(
         retirement_info.annual_savings_rate_percent || 0
       );
       const monthlyContribution = (annualIncome * annualSavingsRate) / 100 / 12;
 
-      // assume 6% annual return for projection
-      const r = 0.06; // interest rate
+      const r = 0.06;
       const n = yearsToRetirement;
       let projectedAtRetirement = currentAssets;
       for (let i = 0; i < n; i++) {
@@ -112,30 +107,32 @@ const P2 = () => {
     }
   }, [formData]);
 
-  // --- Fetch AI Insight from Backend ---
+  // --- Use AI plan passed from navigation or fetch if not available ---
   useEffect(() => {
+    if (aiPlan) {
+      // ✅ Use the plan already generated in backend
+      setAgentOutput(aiPlan);
+      return;
+    }
+
+    // fallback: fetch again if no aiPlan was passed
     if (formData) {
-      setAgentOutput(null); // reset before fetch
-      fetch("http://127.0.0.1:5000/ai_insights", {
+      setAgentOutput(null);
+      fetch("http://127.0.0.1:5000/trial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       })
-        .then((res) => {
-          if (!res.ok) throw new Error("Network response was not ok");
-          return res.json();
-        })
+        .then((res) => res.json())
         .then((data) => {
-          setAgentOutput(
-            data.message || data.output || "No insights available."
-          );
+          setAgentOutput(data.plan || "No insights available.");
         })
         .catch((err) => {
           console.error("Error fetching AI insights:", err);
           setAgentOutput("Failed to fetch insights. Please try again later.");
         });
     }
-  }, [formData]);
+  }, [formData, aiPlan]);
 
   const recommendations = [
     "Increase your monthly savings rate to close the gap between your goal and projections.",
@@ -200,9 +197,9 @@ const P2 = () => {
 
       {/* ✅ AI Agent Output Box */}
       <div className="card agent-output">
-        <h2>AI Agent Insights</h2>
+        <h2>Your Personalised Retirement Plan</h2>
         <p className="card-subtitle">
-          Personalized analysis based on your financial data
+          Personalized plan based on your financial data
         </p>
         <div className="agent-response-box">
           {agentOutput ? agentOutput : "Please wait..."}
@@ -211,7 +208,6 @@ const P2 = () => {
 
       {/* Details Grid */}
       <div className="details-grid">
-        {/* Projected Savings Card */}
         <div className="card projected-savings">
           <h2>Projected Savings</h2>
           <p className="card-subtitle">
@@ -247,7 +243,6 @@ const P2 = () => {
           </div>
         </div>
 
-        {/* Recommendations Card */}
         <div className="card recommendations">
           <h2>Recommendations</h2>
           <p className="card-subtitle">
@@ -261,7 +256,6 @@ const P2 = () => {
         </div>
       </div>
 
-      {/* Call to Action */}
       <footer className="cta-section">
         <h3>Ready to take action?</h3>
         <p>Schedule a consultation with one of our retirement experts.</p>

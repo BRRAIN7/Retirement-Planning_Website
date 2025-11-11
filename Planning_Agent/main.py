@@ -9,7 +9,9 @@ from ML_models import get_goal_classification,risk_appetite_pred
 from prompts import create_master_prompt
 
 import ollama 
-
+import os
+from groq import Groq
+from dotenv import load_dotenv
 
 class AgentState(TypedDict):
     input_data:dict 
@@ -148,6 +150,7 @@ INVESTMENT_RETURN_RATE = 0.12 # Assumed return for new investments
 EPF_RETURN_RATE = 0.0825
 PPF_RETURN_RATE = 0.071
 NPS_RETURN_RATE = 0.10 # Assuming a moderate-risk NPS portfolio
+
 def finantial_calc(state:AgentState) -> AgentState:
     print(" ")
     print("==========================Inside Financial Calculator==========================")
@@ -320,30 +323,12 @@ def feasibility_checker(state:AgentState) ->AgentState :
     return state
 
 def plan_generator(state:AgentState) ->AgentState :
-    ###################################   Hardcoded for testing   ########################################################
-    state["feasibility"]={
-        "Build Emergency Fund (very crucial)": {
-            "status": "Healthy_&_Achievable"
-        },
-        "International Vacation": {
-            "status": "Unrealistic",
-            "warning": "This goal is not affordable with your current remaining surplus."
-        },
-        "Buy a Car": {
-            "status": "Unrealistic",
-            "warning": "This goal is not affordable with your current remaining surplus."
-        },
-        "Child's Higher Education": {
-            "status": "Unrealistic",
-            "warning": "This goal is not affordable with your current remaining surplus."
-        }
-    }
-    #################################################################################################
+
 
     print(" ")
     print("==========================Inside Plan generator==========================")
 
-    # final_prompt= create_master_prompt(state)
+    final_prompt= create_master_prompt(state)
     # result= ollama.chat(
     #     model="phi3:mini",
     #     messages=[{ "role":"user" ,"content" :final_prompt }],
@@ -352,8 +337,41 @@ def plan_generator(state:AgentState) ->AgentState :
 
     # for i in result:
     #     print(i["message"]["content"], end="", flush=True)
+
+
+
+    response_text = ""
     
 
+    load_dotenv()
+    api_key = os.getenv("GROQ_API_KEY")
+    
+
+    client = Groq(api_key=api_key)
+
+    # Send request and stream response
+    stream = client.chat.completions.create(
+        model="llama-3.1-8b-instant",  
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": final_prompt}
+        ],
+        stream=True  # Enable streaming
+    )    
+
+
+    print("\nResponse:\n")
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            print(delta, end="", flush=True)
+            response_text += delta  # collect it
+
+    print("\n\n--- End of Response ---")
+
+    # store in state
+    state["plan"] = response_text.strip()
+    state["formatted_output"] = response_text.strip()
     return state
 
 def output(state:AgentState)-> AgentState:

@@ -112,25 +112,56 @@ const P1 = () => {
     }));
   };
 
+  // const handleSubmit = async (e) => {
+  //   e.preventDefault();
+  //   fetch("http://127.0.0.1:5000/trial", {
+  //     method: "POST",
+  //     headers: {
+  //       "Content-Type": "application/json",
+  //     },
+  //     body: JSON.stringify(formData), // formData should match the backend's expected keys
+  //   })
+  //     .then((response) => {
+  //       if (response.status === 204) {
+  //         console.log("Data sent successfully");
+  //         navigate("/p2", { state: { formData } }); 
+  //       } else {
+  //         console.error("Unexpected status:", response.status);
+  //       }
+  //     })
+  //     .catch((err) => console.error("Error:", err));
+  // };
   const handleSubmit = async (e) => {
     e.preventDefault();
-    fetch("http://127.0.0.1:5000/trial", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(formData), // formData should match the backend's expected keys
-    })
-      .then((response) => {
-        if (response.status === 204) {
-          console.log("Data sent successfully");
-          navigate("/p2", { state: { formData } }); 
-        } else {
-          console.error("Unexpected status:", response.status);
-        }
-      })
-      .catch((err) => console.error("Error:", err));
-  };
+  
+    try {
+      const response = await fetch("http://127.0.0.1:5000/trial", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(formData),
+      });
+  
+      // ✅ Expect JSON, not 204
+      if (!response.ok) {
+        console.error("Unexpected status:", response.status);
+        return;
+      }
+  
+      const data = await response.json();
+  
+      // ✅ Navigate to P2 page, passing both formData and the AI plan
+      navigate("/p2", {
+        state: {
+          formData: formData,
+          aiPlan: data.plan, // this comes from Flask’s jsonify({"plan": ai_plan})
+        },
+      });
+    } catch (err) {
+      console.error("Error:", err);
+    }
+  }; 
 
   // Render current step based on the 'step' state
   const renderStep = () => {
