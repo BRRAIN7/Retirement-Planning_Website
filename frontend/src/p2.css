@@ -1,4 +1,4 @@
-/* Import a clean font, like the one in the image (e.g., Poppins or Inter) */
+/* Import a clean font */
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 
 /* Basic setup */
@@ -124,7 +124,7 @@ header p {
 }
 
 .savings-gap span:last-child {
-  color: #dc3545; /* Red for negative gap */
+  color: #dc3545;
 }
 
 /* Recommendations Card */
@@ -168,6 +168,8 @@ header p {
   color: #555;
   margin: 0;
 }
+
+/* --- Agent Output Section --- */
 .agent-output {
   background: #f8f9fa;
   border-left: 5px solid #007bff;
@@ -184,13 +186,70 @@ header p {
 .agent-response-box {
   background: white;
   border-radius: 10px;
-  padding: 15px;
+  padding: 20px;
   font-size: 16px;
-  line-height: 1.6;
+  line-height: 1.7;
   color: #333;
   box-shadow: inset 0 0 4px rgba(0,0,0,0.1);
+  min-height: 150px;
+  transition: all 0.3s ease;
 }
 
+/* --- Typing effect appearance --- */
+.agent-response-box.typing {
+  border: 1px solid #cde0ff;
+  background: #f9fbff;
+  .agent-response-box::after {
+    content: '|';
+    color: #007bff;
+    font-weight: bold;
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+  }
+}
+
+/* --- Markdown Styling (Structured Look) --- */
+.agent-response-box h1,
+.agent-response-box h2,
+.agent-response-box h3 {
+  color: #007bff;
+  font-weight: 600;
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.agent-response-box p {
+  margin-bottom: 0.75rem;
+}
+
+.agent-response-box strong {
+  color: #212529;
+}
+
+.agent-response-box ul {
+  margin-left: 1.25rem;
+  list-style: disc;
+}
+
+.agent-response-box li {
+  margin-bottom: 0.5rem;
+}
+
+/* --- Loading Spinner --- */
+.loading-spinner {
+  border: 4px solid #e0e0e0;
+  border-top: 4px solid #007bff;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  animation: spin 0.8s linear infinite;
+  margin: 40px auto;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 /* Responsive Design */
 @media (max-width: 992px) {

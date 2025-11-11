@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import ReactMarkdown from "react-markdown"; // ✅ for markdown rendering
 import {
   FaCalendarAlt,
   FaDollarSign,
@@ -8,28 +9,25 @@ import {
 } from "react-icons/fa";
 import "./p2.css";
 
-// ✅ Reusable summary card component
-const SummaryCard = ({ icon, title, value, valueColor }) => {
-  return (
-    <div className="card summary-card">
-      <div className="summary-card-icon">{icon}</div>
-      <div className="summary-card-info">
-        <div className="summary-card-title">{title}</div>
-        <div className="summary-card-value" style={{ color: valueColor }}>
-          {value}
-        </div>
+const SummaryCard = ({ icon, title, value, valueColor }) => (
+  <div className="card summary-card">
+    <div className="summary-card-icon">{icon}</div>
+    <div className="summary-card-info">
+      <div className="summary-card-title">{title}</div>
+      <div className="summary-card-value" style={{ color: valueColor }}>
+        {value}
       </div>
     </div>
-  );
-};
+  </div>
+);
 
 const P2 = () => {
   const { state } = useLocation();
   const formData = state?.formData;
-  const aiPlan = state?.aiPlan; // ✅ added line
+  const aiPlan = state?.aiPlan;
 
-  // --- AI Insight State ---
-  const [agentOutput, setAgentOutput] = useState(null);
+  const [agentOutput, setAgentOutput] = useState(""); // store progressively typed text
+  const [isLoading, setIsLoading] = useState(true); // loader control
 
   const [overviewData, setOverviewData] = useState({
     yearsToRetirement: 0,
@@ -49,7 +47,6 @@ const P2 = () => {
   useEffect(() => {
     if (formData) {
       const { personal_info, financial_info, retirement_info } = formData;
-
       const currentAge = parseInt(personal_info.current_age || 0);
       const retireAge = parseInt(retirement_info.desired_retirement_age || 0);
       const yearsToRetirement =
@@ -107,17 +104,44 @@ const P2 = () => {
     }
   }, [formData]);
 
-  // --- Use AI plan passed from navigation or fetch if not available ---
+  // --- Typing effect for plan display ---
+  const simulateTyping = (text) => {
+    setAgentOutput(""); // reset previous text
+    setIsLoading(false);
+    let i = 0;
+  
+    const typeNext = () => {
+      // progressively show text
+      setAgentOutput(text.substring(0, i));
+  
+      if (i < text.length) {
+        i++;
+  
+        // Slow down slightly at punctuation for realism
+        const currentChar = text.charAt(i);
+        let delay = 12; // base typing speed
+        if ([",", ";"].includes(currentChar)) delay = 60;
+        if ([".", "!", "?"].includes(currentChar)) delay = 120;
+  
+        setTimeout(typeNext, delay);
+      }
+    };
+  
+    typeNext();
+  };
+
+  // --- Display AI plan (from backend or prop) ---
   useEffect(() => {
     if (aiPlan) {
-      // ✅ Use the plan already generated in backend
-      setAgentOutput(aiPlan);
+      // ✅ Already available from previous page
+      setIsLoading(true);
+      setTimeout(() => simulateTyping(aiPlan), 700); // delay to show loader briefly
       return;
     }
 
-    // fallback: fetch again if no aiPlan was passed
+    // fallback: fetch again if not passed
     if (formData) {
-      setAgentOutput(null);
+      setIsLoading(true);
       fetch("http://127.0.0.1:5000/trial", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -125,28 +149,23 @@ const P2 = () => {
       })
         .then((res) => res.json())
         .then((data) => {
-          setAgentOutput(data.plan || "No insights available.");
+          const planText = data.plan || "No insights available.";
+          simulateTyping(planText);
         })
         .catch((err) => {
           console.error("Error fetching AI insights:", err);
           setAgentOutput("Failed to fetch insights. Please try again later.");
+          setIsLoading(false);
         });
     }
   }, [formData, aiPlan]);
 
-  const recommendations = [
-    "Increase your monthly savings rate to close the gap between your goal and projections.",
-    "Diversify investments across equity, debt, and gold for balanced returns.",
-    "Review your asset allocation yearly to align with your risk profile.",
-  ];
-
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat("en-IN", {
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat("en-IN", {
       style: "currency",
       currency: "INR",
       maximumFractionDigits: 0,
     }).format(amount);
-  };
 
   if (!formData) {
     return (
@@ -201,8 +220,13 @@ const P2 = () => {
         <p className="card-subtitle">
           Personalized plan based on your financial data
         </p>
+
         <div className="agent-response-box">
-          {agentOutput ? agentOutput : "Please wait..."}
+          {isLoading ? (
+            <div className="loading-spinner"></div>
+          ) : (
+            <ReactMarkdown>{agentOutput}</ReactMarkdown>
+          )}
         </div>
       </div>
 
@@ -241,18 +265,6 @@ const P2 = () => {
               {formatCurrency(projectedSavings.savingsGap)}
             </span>
           </div>
-        </div>
-
-        <div className="card recommendations">
-          <h2>Recommendations</h2>
-          <p className="card-subtitle">
-            Steps to improve your retirement readiness
-          </p>
-          <ol className="recommendations-list">
-            {recommendations.map((rec, index) => (
-              <li key={index}>{rec}</li>
-            ))}
-          </ol>
         </div>
       </div>
 
