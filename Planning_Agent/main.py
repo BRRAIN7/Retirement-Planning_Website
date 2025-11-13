@@ -18,7 +18,6 @@ class AgentState(TypedDict):
     risk_appetite : str 
     feasibility: dict
     plan:str
-    formatted_output:str
 
     user_profile:dict
     goals: list[dict]
@@ -329,55 +328,50 @@ def plan_generator(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Plan generator==========================")
 
-    final_prompt= create_master_prompt(state)
-    # result= ollama.chat(
-    #     model="phi3:mini",
-    #     messages=[{ "role":"user" ,"content" :final_prompt }],
-    #     stream=True
-    # )
+    # final_prompt= create_master_prompt(state)
+    # # result= ollama.chat(
+    # #     model="phi3:mini",
+    # #     messages=[{ "role":"user" ,"content" :final_prompt }],
+    # #     stream=True
+    # # )
 
-    # for i in result:
-    #     print(i["message"]["content"], end="", flush=True)
+    # # for i in result:
+    # #     print(i["message"]["content"], end="", flush=True)
 
 
 
-    response_text = ""
+    # response_text = ""
     
 
-    load_dotenv()
-    api_key = os.getenv("GROQ_API_KEY")
+    # load_dotenv()
+    # api_key = os.getenv("GROQ_API_KEY")
     
 
-    client = Groq(api_key=api_key)
+    # client = Groq(api_key=api_key)
 
-    # Send request and stream response
-    stream = client.chat.completions.create(
-        model="llama-3.1-8b-instant",  
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": final_prompt}
-        ],
-        stream=True  # Enable streaming
-    )    
+    # # Send request and stream response
+    # stream = client.chat.completions.create(
+    #     model="llama-3.1-8b-instant",  
+    #     messages=[
+    #         {"role": "system", "content": "You are a helpful assistant."},
+    #         {"role": "user", "content": final_prompt}
+    #     ],
+    #     stream=True  # Enable streaming
+    # )    
 
 
-    print("\nResponse:\n")
-    for chunk in stream:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            print(delta, end="", flush=True)
-            response_text += delta  # collect it
+    # print("\nResponse:\n")
+    # for chunk in stream:
+    #     delta = chunk.choices[0].delta.content
+    #     if delta:
+    #         print(delta, end="", flush=True)
+    #         response_text += delta  # collect it
 
-    print("\n\n--- End of Response ---")
+    # print("\n\n--- End of Response ---")
 
-    # store in state
-    state["plan"] = response_text.strip()
-    state["formatted_output"] = response_text.strip()
-    return state
+    # # store in state
+    # state["plan"] = response_text.strip()
 
-def output(state:AgentState)-> AgentState:
-    print(" ")
-    print("Displays the output")
     return state
 
 def router(state:AgentState)-> AgentState:
