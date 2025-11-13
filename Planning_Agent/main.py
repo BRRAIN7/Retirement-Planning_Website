@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     user_profile:dict
     goals: list[dict]
     retirement_plan:dict
+    messsages:list[dict]
 
 
 
@@ -379,6 +380,22 @@ def output(state:AgentState)-> AgentState:
     print("Displays the output")
     return state
 
+def router(state:AgentState)-> AgentState:
+    print(" ")
+    print("==========================Inside the router==========================")
+    return state
+def goal_parser(state:AgentState)->AgentState:
+    print(" ")
+    print("==========================Inside goal parser==========================")
+    return state
+def update_state(state:AgentState)->AgentState:
+    print(" ")
+    print("==========================Inside update state==========================")
+    return state
+def general_chat(state:AgentState)->AgentState:
+    print(" ")
+    print("==========================Inside general chat==========================")
+    return state
 
 graph = StateGraph(AgentState)
 graph.add_node("input_collector",input_collector)
@@ -388,7 +405,10 @@ graph.add_node("risk_predictor",risk_predictor)
 graph.add_node("finantial_calc",finantial_calc)
 graph.add_node("feasibility_checker",feasibility_checker)
 graph.add_node("plan_generator",plan_generator)
-graph.add_node("output",output)
+graph.add_node("router",router)
+graph.add_node("goal_parser",goal_parser)
+graph.add_node("update_state",update_state)
+graph.add_node("general_chat",general_chat)
 
 graph.add_edge(START,"input_collector")
 graph.add_edge("input_collector","goal_classifier")
@@ -398,6 +418,13 @@ graph.add_edge("session_updater","finantial_calc")
 graph.add_edge("finantial_calc","feasibility_checker")
 graph.add_edge("feasibility_checker","plan_generator")
 graph.add_edge("plan_generator","output")
+graph.add_edge("output","router")
+graph.add_edge("router","goal_parser")
+graph.add_edge("goal_parser","update_state")
+graph.add_edge("update_state","finantial_calc")
+graph.add_edge("router","general_chat")
+graph.add_edge("general_chat","output")
+graph.add_edge("router","router")
 graph.add_edge("output",END)
 
 built_graph= graph.compile()
