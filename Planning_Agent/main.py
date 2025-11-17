@@ -1,4 +1,4 @@
-from typing import TypedDict
+from typing import TypedDict, Literal
 from langgraph.graph import StateGraph,START,END
 from session_manager import insert
 import numpy_financial as npf
@@ -8,21 +8,22 @@ from feasibility import warnings_generator
 from ML_models import get_goal_classification,risk_appetite_pred
 from prompts import create_master_prompt
 
-import ollama 
+import ollama
 import os
 from groq import Groq
 from dotenv import load_dotenv
 
 class AgentState(TypedDict):
-    input_data:dict 
-    risk_appetite : str 
+    input_data:dict
+    risk_appetite : str
     feasibility: dict
     plan:str
+    formatted_output:str
 
     user_profile:dict
     goals: list[dict]
     retirement_plan:dict
-    messsages:list[dict]
+    messages:list
 
 
 
@@ -31,7 +32,7 @@ def input_collector(state:AgentState) ->AgentState :
     print("==========================Inside Input Collector==========================")
     input_data = state.get("input_data", {})
 
-    
+
     user_profile = {
         "name": input_data.get("personal_info", {}).get("name"),
         "age": input_data.get("personal_info", {}).get("current_age"),
@@ -45,53 +46,53 @@ def input_collector(state:AgentState) ->AgentState :
         "retirement_info": input_data.get("retirement_info", {})
     }
 
-    
+
     goals = input_data.get("goals", {})
 
-    
+
     collected_goals = []
     for category, goals_list in goals.items():
         for g in goals_list:
             collected_goals.append({
-                "term": category,  
+                "term": category,
                 "name": g.get("name"),
                 "target_amount": g.get("target_amount")
             })
 
-   
+
     state["user_profile"] = user_profile
     state["goals"] = collected_goals
 
     print("User Profile extracted:", user_profile)
     print(" ")
     print("Goals Extracted(before classification) ",state["goals"])
-   
+
     return state
 
 def goal_classifier(state: AgentState)->AgentState:
     print(" ")
     print("==========================Inside Goal Classifier ==========================")
-    
+
     # We will loop through the goals and add the 'type' to each one
     updated_goals = []
-    
+
     for goal in state["goals"]:
         # 1. Get the features the model needs
         # Your model expects 'goal_text', 'target_amount', 'goal_term'
-        goal_text = goal["name"] 
+        goal_text = goal["name"]
         target_amount = goal["target_amount"]
         goal_term = goal["term"] # This comes from your input_collector
-        
+
         # 2. Call the prediction function from MLmodels.py
         predicted_type = get_goal_classification(goal_text, target_amount, goal_term)
-        
+
         # 3. Add the new 'type' to the goal dictionary
         goal['type'] = predicted_type
         updated_goals.append(goal)
 
     # 4. Save the enriched list back to the state
     state["goals"] = updated_goals
-    
+
     print("Agent state after classification: ", state["goals"])
     return state
 
@@ -99,7 +100,7 @@ def goal_classifier(state: AgentState)->AgentState:
 def risk_predictor(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Risk Predictor==========================")
-    
+
     # 1. Build the data dictionary from the state.
     #    This pulls the 10 required features from the full user_profile.
     try:
@@ -114,7 +115,7 @@ def risk_predictor(state:AgentState) ->AgentState :
             'portfolio_percent_equity': profile['assets']['portfolio_breakdown_percent']['equity'],
             'portfolio_percent_crypto': profile['assets']['portfolio_breakdown_percent']['crypto'],
             'portfolio_percent_gold': profile['assets']['portfolio_breakdown_percent']['gold'],
-            
+
             # Get the first short-term goal amount, or 0 if none
             'short_term_goal_amount': state['goals'][0]['target_amount'] if state['goals'] and state['goals'][0]['term'] == 'short_term' else 0
         }
@@ -130,11 +131,11 @@ def risk_predictor(state:AgentState) ->AgentState :
 
     # 2. Call the prediction function WITH the data
     risk = risk_appetite_pred(user_data) # This now passes the data
-    
+
     # 3. Store the result back into the state
     state["risk_appetite"] = risk
     print(f"Risk of the user is :{risk}")
-    
+
     return state
 
 def session_updater(state: AgentState) -> AgentState:
@@ -166,7 +167,7 @@ def finantial_calc(state:AgentState) -> AgentState:
 
     #2. Checking for emergency fund that i should have
         #emergency fund = essential monthly expenses * 3 or 6  (for 3 months or 6 months)
-    
+
     essential_expenses= state["user_profile"]["expenses"]["monthly_total"]-state["user_profile"]["expenses"]["components"]["investment_sips"]
 
     target_emergency_fund=essential_expenses * 3 # kept a 3 month emergency fund for now
@@ -179,21 +180,21 @@ def finantial_calc(state:AgentState) -> AgentState:
             "target_amount": shortfall,
             "term": "short_term",
             "type": "Savings",
-            "required_monthly_investment": emergency_fund_sip 
+            "required_monthly_investment": emergency_fund_sip
         }
 
         state["goals"].append(dictionary)
 
     print(state)
-    
+
 
     #3 Perform the Complete Retirement Calculation
     current_age = state["user_profile"]["age"]
-    
+
     desired_retirement_age = state["user_profile"]["retirement_info"]["desired_retirement_age"]
 
     years_to_retirement = desired_retirement_age - current_age
-    
+
     desired_monthly_expenses = state["user_profile"]["retirement_info"]["desired_retirement_expenses_inr"]
     current_annual_base_expense = desired_monthly_expenses * 12
 
@@ -207,21 +208,21 @@ def finantial_calc(state:AgentState) -> AgentState:
     # b. Future Value of Existing Assets
     projected_future_assets = 0
     assets = state["user_profile"]["assets"]
-    
+
     # Project EPF, PPF, NPS
-    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered 
-    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered 
-    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered 
-    
+    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered
+    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered
+    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered
+
     # Assume 80% of other investments are for retirement
     retirement_investments_pv = assets["total_investments"] * 0.80
     projected_future_assets += npf.fv(INVESTMENT_RETURN_RATE, years_to_retirement, 0, -retirement_investments_pv)
     print(f"Projected Future Value of Existing Assets: ₹{projected_future_assets:,.2f}")
-    
+
     # c. Net Corpus (The Shortfall)
     net_corpus_to_build = gross_corpus - projected_future_assets
     if net_corpus_to_build < 0:
-        net_corpus_to_build = 0 
+        net_corpus_to_build = 0
     print(f"Net Corpus (Shortfall) to Build: ₹{net_corpus_to_build:,.2f}") # Check for unrealistic maybe??
 
     # d. Required SIP to cover the shortfall
@@ -229,13 +230,13 @@ def finantial_calc(state:AgentState) -> AgentState:
     if net_corpus_to_build > 0:
         # Using numpy_financial.pmt to calculate the monthly payment
         required_retirement_sip = npf.pmt(
-            rate=INVESTMENT_RETURN_RATE / 12, 
-            nper=years_to_retirement * 12, 
-            pv=0, 
+            rate=INVESTMENT_RETURN_RATE / 12,
+            nper=years_to_retirement * 12,
+            pv=0,
             fv=-net_corpus_to_build
         )
     print(f"Required Monthly SIP for Retirement: ₹{required_retirement_sip:,.2f}")
-    
+
     # Store the results back into the state for later nodes
     state["retirement_plan"] = {
         "years_to_retirement": years_to_retirement,
@@ -248,22 +249,22 @@ def finantial_calc(state:AgentState) -> AgentState:
 
     #4. Calculate the True "Remaining Surplus"
     print("\n--- Calculating Remaining Surplus for Other Goals ---")
-    
-  
+
+
     remaining_surplus = state["user_profile"]["monthly_surplus"]
-    
- 
+
+
     remaining_surplus -= state["retirement_plan"]["required_sip"]
     remaining_surplus -= emergency_fund_sip
-    
+
 
     state["user_profile"]["remaining_surplus"] = remaining_surplus
     print(f"True Remaining Surplus for other goals: ₹{remaining_surplus:,.2f}")
 
     # 5. Process All Other User Goals
     print("\n--- Processing Other User Goals ---")
-    
-    LOAN_INTEREST_RATE = 0.09 
+
+    LOAN_INTEREST_RATE = 0.09
 
     for goal in state["goals"]:
         if "Build Emergency Fund (very crucial)" in goal["name"]:
@@ -275,30 +276,30 @@ def finantial_calc(state:AgentState) -> AgentState:
             elif goal["term"] == "medium_term":
                 goal["time_horizon_years"] = 5
             else: # long_term
-                goal["time_horizon_years"] = 10 
+                goal["time_horizon_years"] = 10
 
         inflation_adj_future_cost = npf.fv(
-            rate=INFLATION_RATE, 
-            nper=goal["time_horizon_years"], 
-            pmt=0, 
+            rate=INFLATION_RATE,
+            nper=goal["time_horizon_years"],
+            pmt=0,
             pv=-goal["target_amount"]
         )
         goal["inflation_adjusted_cost"] = inflation_adj_future_cost
-        
+
         if goal["type"] == "Loan-Assisted":
             down_payment_needed = inflation_adj_future_cost * 0.20
             loan_principal_amount = inflation_adj_future_cost * 0.80
-            
+
             # b. Calculate the EMI for the loan portion
             estimated_emi = npf.pmt(
                 rate=LOAN_INTEREST_RATE / 12,
                 nper=goal["time_horizon_years"] * 12,
                 pv=-loan_principal_amount
             )
-            
+
             goal["down_payment_needed"] = down_payment_needed
-            goal["estimated_emi"] = abs(estimated_emi) 
-            
+            goal["estimated_emi"] = abs(estimated_emi)
+
 
         elif goal["type"] in ["Investment", "Savings"]:
             required_sip = 0
@@ -309,7 +310,7 @@ def finantial_calc(state:AgentState) -> AgentState:
                      pv=0,
                      fv=-inflation_adj_future_cost
                  )
-            
+
             goal["required_monthly_investment"] = abs(required_sip)
 
 
@@ -328,56 +329,57 @@ def plan_generator(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Plan generator==========================")
 
-    # final_prompt= create_master_prompt(state)
-    # # result= ollama.chat(
-    # #     model="phi3:mini",
-    # #     messages=[{ "role":"user" ,"content" :final_prompt }],
-    # #     stream=True
-    # # )
+    final_prompt= create_master_prompt(state)
+    # result= ollama.chat(
+    #     model="phi3:mini",
+    #     messages=[{ "role":"user" ,"content" :final_prompt }],
+    #     stream=True
+    # )
 
-    # # for i in result:
-    # #     print(i["message"]["content"], end="", flush=True)
-
-
-
-    # response_text = ""
-    
-
-    # load_dotenv()
-    # api_key = os.getenv("GROQ_API_KEY")
-    
-
-    # client = Groq(api_key=api_key)
-
-    # # Send request and stream response
-    # stream = client.chat.completions.create(
-    #     model="llama-3.1-8b-instant",  
-    #     messages=[
-    #         {"role": "system", "content": "You are a helpful assistant."},
-    #         {"role": "user", "content": final_prompt}
-    #     ],
-    #     stream=True  # Enable streaming
-    # )    
+    # for i in result:
+    #     print(i["message"]["content"], end="", flush=True)
 
 
-    # print("\nResponse:\n")
-    # for chunk in stream:
-    #     delta = chunk.choices[0].delta.content
-    #     if delta:
-    #         print(delta, end="", flush=True)
-    #         response_text += delta  # collect it
 
-    # print("\n\n--- End of Response ---")
+    response_text = ""
 
-    # # store in state
-    # state["plan"] = response_text.strip()
 
+    load_dotenv()
+    api_key = os.getenv("GROQ_API_KEY")
+
+
+    client = Groq(api_key=api_key)
+
+    # Send request and stream response
+    stream = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": final_prompt}
+        ],
+        stream=True  # Enable streaming
+    )
+
+
+    print("\nResponse:\n")
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            print(delta, end="", flush=True)
+            response_text += delta  # collect it
+
+    print("\n\n--- End of Response ---")
+
+    # store in state
+    state["plan"] = response_text.strip()
+    state["formatted_output"] = response_text.strip()
     return state
 
-def router(state:AgentState)-> AgentState:
+def output(state:AgentState)-> AgentState:
     print(" ")
-    print("==========================Inside the router==========================")
+    print("Displays the output")
     return state
+
 def goal_parser(state:AgentState)->AgentState:
     print(" ")
     print("==========================Inside goal parser==========================")
@@ -391,38 +393,83 @@ def general_chat(state:AgentState)->AgentState:
     print("==========================Inside general chat==========================")
     return state
 
+def decider(state) -> Literal["new_user", "modify", "chat"]:
+    messages = state.get("messages", [])
+
+    # If no messages received, treat as new user
+    if len(messages) == 0:
+        return "new_user"
+
+    msg = messages[-1]["content"].lower()
+
+    # Detect if the user_profile is missing or incomplete
+    profile = state.get("user_profile", {})
+
+    # If user_profile is missing OR has no age (core field), treat as new user
+    if not profile or not profile.get("age"):
+        return "new_user"
+
+    # Modify keywords routing
+    modify_keywords = ["change", "update", "modify", "what if", "increase", "decrease"]
+    if any(k in msg for k in modify_keywords):
+        return "modify"
+
+    # Default → normal chat
+    return "chat"
+
+
 graph = StateGraph(AgentState)
-graph.add_node("input_collector",input_collector)
-graph.add_node("goal_classifier",goal_classifier)
-graph.add_node("session_updater",session_updater)
-graph.add_node("risk_predictor",risk_predictor)
-graph.add_node("finantial_calc",finantial_calc)
-graph.add_node("feasibility_checker",feasibility_checker)
-graph.add_node("plan_generator",plan_generator)
-graph.add_node("router",router)
-graph.add_node("goal_parser",goal_parser)
-graph.add_node("update_state",update_state)
-graph.add_node("general_chat",general_chat)
 
-graph.add_edge(START,"input_collector")
-graph.add_edge("input_collector","goal_classifier")
-graph.add_edge("goal_classifier","risk_predictor")
-graph.add_edge("risk_predictor","session_updater")
-graph.add_edge("session_updater","finantial_calc")
-graph.add_edge("finantial_calc","feasibility_checker")
-graph.add_edge("feasibility_checker","plan_generator")
-graph.add_edge("plan_generator","output")
-graph.add_edge("output","router")
-graph.add_edge("router","goal_parser")
-graph.add_edge("goal_parser","update_state")
-graph.add_edge("update_state","finantial_calc")
-graph.add_edge("router","general_chat")
-graph.add_edge("general_chat","output")
-graph.add_edge("router","router")
-graph.add_edge("output",END)
+# Nodes
+graph.add_node("decider", decider)
+graph.add_node("input_collector", input_collector)
+graph.add_node("goal_classifier", goal_classifier)
+graph.add_node("session_updater", session_updater)
+graph.add_node("risk_predictor", risk_predictor)
+graph.add_node("financial_calc", finantial_calc)
+graph.add_node("feasibility_checker", feasibility_checker)
+graph.add_node("plan_generator", plan_generator)
+graph.add_node("goal_parser", goal_parser)
+graph.add_node("update_state", update_state)
+graph.add_node("general_chat", general_chat)
+graph.add_node("output", output)
 
-built_graph= graph.compile()
+# START → decider
+graph.add_edge(START, "decider")
 
+# CONDITIONAL ROUTES
+graph.add_conditional_edges(
+    "decider",
+    decider,
+    {
+        "new_user": "input_collector",
+        "modify": "goal_parser",
+        "chat": "general_chat"
+    }
+)
 
+# NEW USER FLOW
+graph.add_edge("input_collector", "goal_classifier")
+graph.add_edge("goal_classifier", "risk_predictor")
+graph.add_edge("risk_predictor", "session_updater")
+graph.add_edge("session_updater", "financial_calc")
+graph.add_edge("financial_calc", "feasibility_checker")
+graph.add_edge("feasibility_checker", "plan_generator")
+graph.add_edge("plan_generator", "output")
 
+# MODIFY USER FLOW
+graph.add_edge("goal_parser", "update_state")
+graph.add_edge("update_state", "financial_calc")
+graph.add_edge("financial_calc", "feasibility_checker")
+graph.add_edge("feasibility_checker", "plan_generator")
+graph.add_edge("plan_generator", "output")
 
+# GENERAL CHAT FLOW
+graph.add_edge("general_chat", "output")
+
+# LOOP BACK
+graph.add_edge("output", "decider")
+graph.add_edge("decider", END)
+
+# Build graph
+built_graph = graph.compile()
