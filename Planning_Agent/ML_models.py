@@ -75,8 +75,28 @@ GOAL_MODEL_PIPELINE = _load_goal_model_assets() # <-- Updated
 # --- 3. PREDICTION FUNCTIONS ---
 
 def risk_appetite_pred(user_data: dict) -> str:
-    # ... (This function is correct, no changes needed) ...
-    pass
+    """
+    Predicts the risk appetite of the user based on input data.
+    """
+    print("Running real-time risk appetite prediction...")
+
+    if not RISK_MODEL_PIPELINE:
+        print("Model is not loaded. Returning 'Medium' as default.")
+        return "Medium" 
+
+    try:
+        input_df = pd.DataFrame([user_data])
+        input_df_features = input_df[MODEL_FEATURES]
+        prediction_numeric = RISK_MODEL_PIPELINE.predict(input_df_features)
+        prediction_label = RISK_LABEL_ENCODER.inverse_transform(prediction_numeric)
+        return prediction_label[0]
+
+    except KeyError as e:
+        print(f"Error during prediction: Missing key {e}. Check input data.")
+        return "Medium" 
+    except Exception as e:
+        print(f"Error during prediction: {e}. Returning 'Medium' as default.")
+        return "Medium"
 
 # --- 4. YOUR GOAL CLASSIFICATION FUNCTION (FIXED) ---
 

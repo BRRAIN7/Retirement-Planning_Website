@@ -167,7 +167,7 @@ def finantial_calc(state:AgentState) -> AgentState:
 
     #2. Checking for emergency fund that i should have
         #emergency fund = essential monthly expenses * 3 or 6  (for 3 months or 6 months)
-
+    
     essential_expenses= state["user_profile"]["expenses"]["monthly_total"]-state["user_profile"]["expenses"]["components"]["investment_sips"]
 
     target_emergency_fund=essential_expenses * 3 # kept a 3 month emergency fund for now
@@ -180,21 +180,21 @@ def finantial_calc(state:AgentState) -> AgentState:
             "target_amount": shortfall,
             "term": "short_term",
             "type": "Savings",
-            "required_monthly_investment": emergency_fund_sip
+            "required_monthly_investment": emergency_fund_sip 
         }
 
         state["goals"].append(dictionary)
 
     print(state)
-
+    
 
     #3 Perform the Complete Retirement Calculation
     current_age = state["user_profile"]["age"]
-
+    
     desired_retirement_age = state["user_profile"]["retirement_info"]["desired_retirement_age"]
 
     years_to_retirement = desired_retirement_age - current_age
-
+    
     desired_monthly_expenses = state["user_profile"]["retirement_info"]["desired_retirement_expenses_inr"]
     current_annual_base_expense = desired_monthly_expenses * 12
 
@@ -208,21 +208,21 @@ def finantial_calc(state:AgentState) -> AgentState:
     # b. Future Value of Existing Assets
     projected_future_assets = 0
     assets = state["user_profile"]["assets"]
-
+    
     # Project EPF, PPF, NPS
-    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered
-    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered
-    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered
-
+    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered 
+    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered 
+    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered 
+    
     # Assume 80% of other investments are for retirement
     retirement_investments_pv = assets["total_investments"] * 0.80
     projected_future_assets += npf.fv(INVESTMENT_RETURN_RATE, years_to_retirement, 0, -retirement_investments_pv)
     print(f"Projected Future Value of Existing Assets: ₹{projected_future_assets:,.2f}")
-
+    
     # c. Net Corpus (The Shortfall)
     net_corpus_to_build = gross_corpus - projected_future_assets
     if net_corpus_to_build < 0:
-        net_corpus_to_build = 0
+        net_corpus_to_build = 0 
     print(f"Net Corpus (Shortfall) to Build: ₹{net_corpus_to_build:,.2f}") # Check for unrealistic maybe??
 
     # d. Required SIP to cover the shortfall
@@ -230,13 +230,13 @@ def finantial_calc(state:AgentState) -> AgentState:
     if net_corpus_to_build > 0:
         # Using numpy_financial.pmt to calculate the monthly payment
         required_retirement_sip = npf.pmt(
-            rate=INVESTMENT_RETURN_RATE / 12,
-            nper=years_to_retirement * 12,
-            pv=0,
+            rate=INVESTMENT_RETURN_RATE / 12, 
+            nper=years_to_retirement * 12, 
+            pv=0, 
             fv=-net_corpus_to_build
         )
     print(f"Required Monthly SIP for Retirement: ₹{required_retirement_sip:,.2f}")
-
+    
     # Store the results back into the state for later nodes
     state["retirement_plan"] = {
         "years_to_retirement": years_to_retirement,
@@ -249,22 +249,22 @@ def finantial_calc(state:AgentState) -> AgentState:
 
     #4. Calculate the True "Remaining Surplus"
     print("\n--- Calculating Remaining Surplus for Other Goals ---")
-
-
+    
+  
     remaining_surplus = state["user_profile"]["monthly_surplus"]
-
-
+    
+ 
     remaining_surplus -= state["retirement_plan"]["required_sip"]
     remaining_surplus -= emergency_fund_sip
-
+    
 
     state["user_profile"]["remaining_surplus"] = remaining_surplus
     print(f"True Remaining Surplus for other goals: ₹{remaining_surplus:,.2f}")
 
     # 5. Process All Other User Goals
     print("\n--- Processing Other User Goals ---")
-
-    LOAN_INTEREST_RATE = 0.09
+    
+    LOAN_INTEREST_RATE = 0.09 
 
     for goal in state["goals"]:
         if "Build Emergency Fund (very crucial)" in goal["name"]:
@@ -310,7 +310,7 @@ def finantial_calc(state:AgentState) -> AgentState:
                      pv=0,
                      fv=-inflation_adj_future_cost
                  )
-
+            
             goal["required_monthly_investment"] = abs(required_sip)
 
 
@@ -405,10 +405,12 @@ def general_chat(state:AgentState)->AgentState:
     return state
 
 def decider(state) -> Literal["new_user", "modify", "chat"]:
+    print("==========================Inside DECIDER ==========================")
     messages = state.get("messages", [])
 
     # If no messages received, treat as new user
     if len(messages) == 0:
+        print("TAKING THE NEW USER PATH")
         return "new_user"
 
     msg = messages[-1]["content"].lower()
@@ -418,14 +420,17 @@ def decider(state) -> Literal["new_user", "modify", "chat"]:
 
     # If user_profile is missing OR has no age (core field), treat as new user
     if not profile or not profile.get("age"):
+        print("TAKING THE NEW USER PATH")
         return "new_user"
 
     # Modify keywords routing
     modify_keywords = ["change", "update", "modify", "what if", "increase", "decrease"]
     if any(k in msg for k in modify_keywords):
+        print("TAKING THE MODIFY DETIALS PATH ")
         return "modify"
 
     # Default → normal chat
+    print(" TAKING THE NORMAL CHAT PATH ")
     return "chat"
 
 
@@ -444,20 +449,6 @@ graph.add_node("goal_parser", goal_parser)
 graph.add_node("update_state", update_state)
 graph.add_node("general_chat", general_chat)
 graph.add_node("output", output)
-
-# START → decider
-#graph.add_edge(START, "decider")
-
-# CONDITIONAL ROUTES
-# graph.add_conditional_edges(
-#     "decider",
-#     decider,
-#     {
-#         "new_user": "input_collector",
-#         "modify": "goal_parser",
-#         "chat": "general_chat"
-#     }
-# )
 
 graph.set_conditional_entry_point(
     decider,  # The routing function
