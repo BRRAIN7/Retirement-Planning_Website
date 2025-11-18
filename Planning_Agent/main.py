@@ -329,55 +329,66 @@ def plan_generator(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Plan generator==========================")
 
-    final_prompt= create_master_prompt(state)
-    # result= ollama.chat(
-    #     model="phi3:mini",
-    #     messages=[{ "role":"user" ,"content" :final_prompt }],
-    #     stream=True
+    # final_prompt= create_master_prompt(state)
+    # # result= ollama.chat(
+    # #     model="phi3:mini",
+    # #     messages=[{ "role":"user" ,"content" :final_prompt }],
+    # #     stream=True
+    # # )
+
+    # # for i in result:
+    # #     print(i["message"]["content"], end="", flush=True)
+
+
+
+    # response_text = ""
+
+
+    # load_dotenv()
+    # api_key = os.getenv("GROQ_API_KEY")
+
+
+    # client = Groq(api_key=api_key)
+
+    # # Send request and stream response
+    # stream = client.chat.completions.create(
+    #     model="llama-3.1-8b-instant",
+    #     messages=[
+    #         {"role": "system", "content": "You are a helpful assistant."},
+    #         {"role": "user", "content": final_prompt}
+    #     ],
+    #     stream=True  # Enable streaming
     # )
 
-    # for i in result:
-    #     print(i["message"]["content"], end="", flush=True)
 
+    # print("\nResponse:\n")
+    # for chunk in stream:
+    #     delta = chunk.choices[0].delta.content
+    #     if delta:
+    #         print(delta, end="", flush=True)
+    #         response_text += delta  # collect it
 
+    # print("\n\n--- End of Response ---")
 
-    response_text = ""
-
-
-    load_dotenv()
-    api_key = os.getenv("GROQ_API_KEY")
-
-
-    client = Groq(api_key=api_key)
-
-    # Send request and stream response
-    stream = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": final_prompt}
-        ],
-        stream=True  # Enable streaming
-    )
-
-
-    print("\nResponse:\n")
-    for chunk in stream:
-        delta = chunk.choices[0].delta.content
-        if delta:
-            print(delta, end="", flush=True)
-            response_text += delta  # collect it
-
-    print("\n\n--- End of Response ---")
-
-    # store in state
-    state["plan"] = response_text.strip()
-    state["formatted_output"] = response_text.strip()
+    # # store in state
+    # state["plan"] = response_text.strip()
+    # state["formatted_output"] = response_text.strip()
     return state
 
 def output(state:AgentState)-> AgentState:
     print(" ")
-    print("Displays the output")
+    print("==========================Inside Output==========================")
+    
+    # 1. Get the AI's response (from either the plan or a chat)
+    ai_response = state.get("plan") 
+
+    if ai_response:
+        # 2. Add the AI's message to the chat history
+        if "messages" not in state:
+            state["messages"] = []
+        state["messages"].append({"role": "ai", "content": ai_response})
+        print("✅ AI response added to messages list.")
+
     return state
 
 def goal_parser(state:AgentState)->AgentState:
@@ -421,7 +432,7 @@ def decider(state) -> Literal["new_user", "modify", "chat"]:
 graph = StateGraph(AgentState)
 
 # Nodes
-graph.add_node("decider", decider)
+#graph.add_node("decider", decider)
 graph.add_node("input_collector", input_collector)
 graph.add_node("goal_classifier", goal_classifier)
 graph.add_node("session_updater", session_updater)
@@ -435,13 +446,23 @@ graph.add_node("general_chat", general_chat)
 graph.add_node("output", output)
 
 # START → decider
-graph.add_edge(START, "decider")
+#graph.add_edge(START, "decider")
 
 # CONDITIONAL ROUTES
-graph.add_conditional_edges(
-    "decider",
-    decider,
+# graph.add_conditional_edges(
+#     "decider",
+#     decider,
+#     {
+#         "new_user": "input_collector",
+#         "modify": "goal_parser",
+#         "chat": "general_chat"
+#     }
+# )
+
+graph.set_conditional_entry_point(
+    decider,  # The routing function
     {
+        # The map of string -> node
         "new_user": "input_collector",
         "modify": "goal_parser",
         "chat": "general_chat"
@@ -468,8 +489,8 @@ graph.add_edge("plan_generator", "output")
 graph.add_edge("general_chat", "output")
 
 # LOOP BACK
-graph.add_edge("output", "decider")
-graph.add_edge("decider", END)
+graph.add_edge("output", END)
+
 
 # Build graph
 built_graph = graph.compile()
