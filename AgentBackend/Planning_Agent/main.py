@@ -1,12 +1,12 @@
 from typing import TypedDict, Literal
 from langgraph.graph import StateGraph,START,END
-from session_manager import insert
+from .session_manager import insert
 import numpy_financial as npf
 from datetime import datetime
-from feasibility import warnings_generator
+from .feasibility import warnings_generator
 
-from ML_models import get_goal_classification,risk_appetite_pred
-from prompts import create_master_prompt
+from .ML_models import get_goal_classification,risk_appetite_pred
+from .prompts import create_master_prompt
 
 import ollama
 import os
