@@ -141,7 +141,7 @@ def risk_predictor(state:AgentState) ->AgentState :
 def session_updater(state: AgentState) -> AgentState:
     print(" ")
     print("==========================Inside Session Updator==========================")
-    insert(state)
+    #insert(state)
     print (" ")
     return state
 

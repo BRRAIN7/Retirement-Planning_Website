@@ -1,8 +1,10 @@
 from django.urls import path
-from . import views
+from .views import  RegisterView, LoginView, SubmitFinancialDataView, ChatView
 
+    
 urlpatterns = [
-    path('register/', views.register_view, name='register'),
-    path('login/', views.login_view, name='login'),
-    path('trial/', views.collector_view, name='collector'),
+    path('register/', RegisterView.as_view(), name="register"),
+    path('login/', LoginView.as_view(), name="login"),
+    path('submit/', SubmitFinancialDataView.as_view(), name="submit-financial-data"),
+    path('chat/', ChatView.as_view(), name="chat"),
 ]

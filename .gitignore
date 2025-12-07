@@ -1,0 +1,38 @@
+# Python stuff
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+
+# Django stuff
+db.sqlite3
+*.sqlite3
+/media/
+staticfiles/
+
+# Environment
+env/
+venv/
+ENV/
+.venv/
+
+# Node stuff (if frontend)
+node_modules/
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# PyCharm
+*.iml
+
+# Secrets
+*.env
+.env.*
