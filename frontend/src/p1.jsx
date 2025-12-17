@@ -124,7 +124,7 @@ const P1 = () => {
   //     .then((response) => {
   //       if (response.status === 204) {
   //         console.log("Data sent successfully");
-  //         navigate("/p2", { state: { formData } }); 
+  //         navigate("/p2", { state: { formData } });
   //       } else {
   //         console.error("Unexpected status:", response.status);
   //       }
@@ -133,8 +133,9 @@ const P1 = () => {
   // };
   const handleSubmit = async (e) => {
     e.preventDefault();
-  
+
     try {
+      console.log(JSON.stringify(formData));
       const response = await fetch("http://127.0.0.1:5000/trial", {
         method: "POST",
         headers: {
@@ -142,15 +143,15 @@ const P1 = () => {
         },
         body: JSON.stringify(formData),
       });
-  
+
       // ✅ Expect JSON, not 204
       if (!response.ok) {
         console.error("Unexpected status:", response.status);
         return;
       }
-  
+
       const data = await response.json();
-  
+
       // ✅ Navigate to P2 page, passing both formData and the AI plan
       navigate("/p2", {
         state: {
@@ -161,7 +162,7 @@ const P1 = () => {
     } catch (err) {
       console.error("Error:", err);
     }
-  }; 
+  };
 
   // Render current step based on the 'step' state
   const renderStep = () => {
