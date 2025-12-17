@@ -6,7 +6,7 @@ from datetime import datetime
 from .feasibility import warnings_generator
 
 from .ML_models import get_goal_classification,risk_appetite_pred
-from .prompts import create_master_prompt
+from .prompts import create_master_prompt,get_general_chat_prompt
 
 import ollama
 import os
@@ -379,16 +379,6 @@ def output(state:AgentState)-> AgentState:
     print(" ")
     print("==========================Inside Output==========================")
     
-    # 1. Get the AI's response (from either the plan or a chat)
-    ai_response = state.get("plan") 
-
-    if ai_response:
-        # 2. Add the AI's message to the chat history
-        if "messages" not in state:
-            state["messages"] = []
-        state["messages"].append({"role": "ai", "content": ai_response})
-        print("✅ AI response added to messages list.")
-
     return state
 
 def goal_parser(state:AgentState)->AgentState:
@@ -399,9 +389,42 @@ def update_state(state:AgentState)->AgentState:
     print(" ")
     print("==========================Inside update state==========================")
     return state
-def general_chat(state:AgentState)->AgentState:
+
+
+def general_chat(state: AgentState) -> AgentState:
     print(" ")
-    print("==========================Inside general chat==========================")
+    print("==========================Inside General Chat==========================")
+    
+    messages = state.get("messages", [])
+    user_message = messages[-1]["content"] if messages else "Hello"
+
+    user_profile = state.get("user_profile", {})
+    user_name = user_profile.get("name", "User")
+    
+ 
+    feasibility_report = state.get("feasibility", "No financial plan generated yet.")
+    
+  
+    system_prompt = get_general_chat_prompt(user_name, feasibility_report)
+
+ 
+    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_message}
+        ],
+        temperature=0.7
+    )
+    
+    ai_response = response.choices[0].message.content
+
+    # SAVE OUTPUT 
+    # what about storing it in messeges???
+
+    
     return state
 
 def decider(state) -> Literal["new_user", "modify", "chat"]:
