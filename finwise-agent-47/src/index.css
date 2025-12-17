@@ -1,0 +1,92 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    --primary: 215 85% 45%;
+    --primary-foreground: 0 0% 100%;
+    
+    --primary-gradient: linear-gradient(135deg, hsl(215 85% 45%), hsl(195 85% 50%));
+
+    --secondary: 150 60% 45%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 30% 93%;
+    --muted-foreground: 215 15% 45%;
+
+    --accent: 195 85% 50%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 215 85% 45%;
+
+    --radius: 0.75rem;
+
+    --success: 150 60% 45%;
+    --warning: 38 92% 50%;
+    --info: 195 85% 50%;
+
+    --shadow-sm: 0 1px 2px 0 hsl(215 25% 15% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(215 25% 15% / 0.1);
+    --shadow-lg: 0 10px 15px -3px hsl(215 25% 15% / 0.1);
+    --shadow-glow: 0 0 20px hsl(215 85% 45% / 0.15);
+  }
+
+  .dark {
+    --background: 215 30% 10%;
+    --foreground: 210 40% 98%;
+
+    --card: 215 28% 14%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 28% 14%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 215 85% 55%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 150 60% 50%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 215 25% 20%;
+    --muted-foreground: 215 15% 65%;
+
+    --accent: 195 85% 55%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 215 25% 22%;
+    --input: 215 25% 22%;
+    --ring: 215 85% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
