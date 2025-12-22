@@ -9,9 +9,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.authentication import TokenAuthentication
 import decimal
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.authtoken.models import Token
 # Import your models
 from .models import (
     UserProfile, Income, Expenses, Assets, Liabilities,
@@ -183,63 +180,37 @@ class RegisterView(APIView):
         )
 
 
-# class LoginView(APIView):
-#     authentication_classes = [UnsafeSessionAuthentication]
-#     permission_classes = [IsAuthenticated]
-
-#     def post(self, request):
-#         username = request.data.get("username")
-#         password = request.data.get("password")
-
-#         if not username or not password:
-#             return Response({"error": "Username and password required"}, status=400)
-
-#         user = authenticate(request, username=username, password=password)
-#         if user is None:
-#             return Response({"error": "Invalid credentials"}, status=401)
-
-#         token, _ = Token.objects.get_or_create(user=user)
-
-#         return Response(
-#             {
-#                 "token": token.key,
-#                 "newUser": False
-#             },
-#             status=200
-#         )
-
 class LoginView(APIView):
-    authentication_classes = [UnsafeSessionAuthentication]
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
+
     def post(self, request):
         username = request.data.get("username")
         password = request.data.get("password")
 
         if not username or not password:
-            return Response(
-                {"error": "Username and password required"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response({"error": "Username and password required"}, status=400)
 
         user = authenticate(request, username=username, password=password)
         if user is None:
-            return Response(
-                {"error": "Invalid credentials"},
-                status=status.HTTP_401_UNAUTHORIZED,
-            )
+            return Response({"error": "Invalid credentials"}, status=401)
 
-        login(request, user)
+        token, _ = Token.objects.get_or_create(user=user)
+
         return Response(
-            {"success": True, "message": f"Welcome {username}!"},
-            status=status.HTTP_200_OK,
+            {
+                "token": token.key,
+                "newUser": False
+            },
+            status=200
         )
+
 
 # ==========================================
 # 2. SUBMIT DATA & GENERATE PLAN
 # ==========================================
 
 class SubmitFinancialDataView(APIView):
-    authentication_classes = [UnsafeSessionAuthentication]
+    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -331,7 +302,7 @@ class SubmitFinancialDataView(APIView):
 # ==========================================
 
 class ChatView(APIView):
-    authentication_classes = [UnsafeSessionAuthentication]
+    authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -397,6 +368,5 @@ class ChatView(APIView):
 class VerifyTokenView(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
-
     def post(self, request):
         return Response({"valid": True}, status=200)
