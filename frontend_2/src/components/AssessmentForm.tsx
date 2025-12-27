@@ -306,7 +306,13 @@ case 1:
               <Input
                 id="name"
                 value={personal_info.name}
-                onChange={handleNestedChange(["personal_info", "name"])}
+                placeholder=""
+                onChange={(e) => {
+                  // Regex: Only allow alphabets (a-z, A-Z) and spaces
+                  if (/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                    handleNestedChange(["personal_info", "name"])(e);
+                  }
+                }}
               />
             </div>
 
@@ -427,7 +433,7 @@ case 2:
             {/* --- Section 2: Expenses --- */}
             <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-4 space-y-4">
               <h3 className="font-semibold text-lg flex items-center gap-2">
-                💸 Expense Breakdown
+                💸Monthly Expense Breakdown
               </h3>
               <p className="text-sm text-muted-foreground -mt-2">
                 Break down your monthly spending. The total is calculated automatically.
@@ -480,7 +486,7 @@ case 2:
 
                 {/* Component 3: Misc */}
                 <div className="space-y-2">
-                  <Label>Misc / Living Expenses (₹)</Label>
+                  <Label>Living Expenses (₹)</Label>
                   <Input
                     type="number"
                     min={0}
@@ -728,7 +734,7 @@ case 3:
           </div>
         );
 
-      case 4:
+case 4:
       case 5:
       case 6:
         const type =
@@ -736,37 +742,65 @@ case 3:
         const list = goals[type];
 
         return (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {list.map((g, i) => (
-              <div key={i} className="relative p-4 bg-muted/50 rounded">
+              <div key={i} className="relative p-4 bg-muted/50 rounded border border-muted space-y-3">
                 <button
                   type="button"
                   onClick={() => removeGoal(type, i)}
-                  className="absolute right-2 top-2 text-xs text-muted-foreground hover:text-red-500"
+                  className="absolute right-2 top-2 text-xs text-muted-foreground hover:text-red-500 transition-colors"
                 >
                   Remove
                 </button>
 
-                <Label>Goal Name</Label>
-                <Input
-                  name="name"
-                  value={g.name}
-                  onChange={(e) => handleGoalChange(type, i, e)}
-                />
+                <div className="space-y-1">
+                  <Label>Goal Name</Label>
+                  <Input
+                    name="name"
+                    value={g.name}
+                    placeholder="e.g. Buy Car"
+                    onChange={(e) => {
+                      // Regex: Only allow alphabets (a-z, A-Z) and spaces
+                      if (/^[a-zA-Z\s]*$/.test(e.target.value)) {
+                        handleGoalChange(type, i, e);
+                      }
+                    }}
+                  />
+                </div>
 
-                <Label>Target Amount (₹)</Label>
-                <Input
-                  type="number"
-                  name="target_amount"
-                  value={g.target_amount}
-                  onChange={(e) => handleGoalChange(type, i, e)}
-                />
+                <div className="space-y-1">
+                  <Label>Target Amount (₹)</Label>
+                  <Input
+                    type="number"
+                    name="target_amount"
+                    min="0"
+                    placeholder="0"
+                    value={g.target_amount}
+                    onKeyDown={(e) => {
+                      // Block e, E, +, -, and . (decimal) to ensure strict integer/number entry
+                      if (["e", "E", "+", "-", "."].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => handleGoalChange(type, i, e)}
+                  />
+                </div>
               </div>
             ))}
 
-            <Button variant="outline" onClick={() => addGoal(type)}>
-              + Add Goal
+            <Button 
+              variant="outline" 
+              onClick={() => addGoal(type)}
+              className="w-full border-dashed"
+            >
+              + Add {step === 4 ? "Short" : step === 5 ? "Medium" : "Long"} Term Goal
             </Button>
+            
+            {list.length === 0 && (
+              <p className="text-sm text-center text-muted-foreground italic">
+                No goals added yet. Click above to add one.
+              </p>
+            )}
           </div>
         );
 
@@ -779,14 +813,20 @@ case 7:
               <Input
                 type="number"
                 min="0"
-                max="100"
+                max="99"
                 placeholder="e.g. 60"
                 value={retirement_info.desired_retirement_age}
                 onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                onChange={handleNestedChange([
-                  "retirement_info",
-                  "desired_retirement_age",
-                ])}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // Only update if empty (deletion) or <= 99
+                  if (val === "" || Number(val) <= 99) {
+                    handleNestedChange([
+                      "retirement_info",
+                      "desired_retirement_age",
+                    ])(e);
+                  }
+                }}
               />
             </div>
 
