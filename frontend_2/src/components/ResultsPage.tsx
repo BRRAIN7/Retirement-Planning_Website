@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,8 +16,97 @@ import {
   CheckCircle2,
   Calendar,
   MessageCircle,
+  Sparkles,
 } from "lucide-react";
 
+// --- CUSTOM FORMATTER (Updated for Tighter Spacing) ---
+const FormattedText = ({ text }: { text: string }) => {
+  if (!text) return null;
+
+  const renderBold = (line: string) => {
+    const parts = line.split(/(\*\*.*?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith("**") && part.endsWith("**")) {
+        return (
+          <strong key={i} className="font-bold text-foreground">
+            {part.slice(2, -2)}
+          </strong>
+        );
+      }
+      return <span key={i}>{part}</span>;
+    });
+  };
+
+  return (
+    // Changed: space-y-3 -> space-y-1, leading-relaxed -> leading-normal
+    <div className="space-y-1 text-muted-foreground leading-normal">
+      {text.split("\n").map((line, index) => {
+        // 1. Handle Headers (###)
+        if (line.startsWith("### ")) {
+          return (
+            // Changed: mt-6 -> mt-3, mb-2 -> mb-1
+            <h3 key={index} className="text-lg font-semibold text-primary mt-3 mb-1">
+              {line.replace("### ", "")}
+            </h3>
+          );
+        }
+        // 2. Handle Lists (- )
+        if (line.trim().startsWith("- ")) {
+          return (
+            <div key={index} className="flex gap-2 ml-2">
+              <span className="text-primary">•</span>
+              <p>{renderBold(line.replace("- ", ""))}</p>
+            </div>
+          );
+        }
+        // 3. Handle Empty Lines
+        if (line.trim() === "") {
+          // Changed: h-2 -> h-1 (Just a small spacer)
+          return <div key={index} className="h-1"></div>;
+        }
+        // 4. Standard Paragraph
+        return <p key={index}>{renderBold(line)}</p>;
+      })}
+    </div>
+  );
+};
+
+// --- SUB-COMPONENT: STREAMING WRAPPER ---
+const StreamedContent = ({ content }: { content: string }) => {
+  const [displayedContent, setDisplayedContent] = useState("");
+  const indexRef = useRef(0);
+
+  useEffect(() => {
+    setDisplayedContent("");
+    indexRef.current = 0;
+  }, [content]);
+
+  useEffect(() => {
+    const intervalId = setInterval(() => {
+      if (indexRef.current < content.length) {
+        // Typing speed: 2 chars per 10ms
+        const chunk = content.slice(indexRef.current, indexRef.current + 2);
+        setDisplayedContent((prev) => prev + chunk);
+        indexRef.current += 2;
+      } else {
+        clearInterval(intervalId);
+      }
+    }, 10); 
+
+    return () => clearInterval(intervalId);
+  }, [content]);
+
+  return (
+    <div>
+      <FormattedText text={displayedContent} />
+      {displayedContent.length < content.length && (
+        <span className="inline-block w-2 h-4 ml-1 bg-primary animate-pulse align-middle"></span>
+      )}
+    </div>
+  );
+};
+
+// --- MAIN PAGE COMPONENT ---
 const ResultsPage = ({
   results,
   onBackToHome,
@@ -26,7 +115,7 @@ const ResultsPage = ({
   onBackToHome: () => void;
 }) => {
   const navigate = useNavigate();
-  console.log("RESULTS RECEIVED:", results);
+  
   const [overview, setOverview] = useState({
     yearsToRetirement: 0,
     currentAssets: 0,
@@ -53,10 +142,18 @@ const ResultsPage = ({
     if (!results || !results.backendResult) return;
 
     const data = results.backendResult;
+    const formData = results.formData || {};
     const m = data.metrics;
 
     if (!m) return;
 
+    // 1. Calculate Actual Monthly Contribution (Income - Expenses)
+    const annualIncome = Number(formData.financial_info?.income?.annual || 0);
+    const monthlyExpenses = Number(formData.financial_info?.expenses?.monthly_total || 0);
+    const calculatedSurplus = (annualIncome / 12) - monthlyExpenses;
+    const monthlyContribution = Math.max(0, calculatedSurplus);
+
+    // 2. Set Overview & Projection
     setOverview({
       yearsToRetirement: m.years_to_retirement ?? 0,
       currentAssets: m.projected_future_assets ?? 0,
@@ -65,14 +162,14 @@ const ResultsPage = ({
 
     setProjection({
       currentAssets: m.projected_future_assets ?? 0,
-      monthlyContribution: m.required_retirement_sip ?? 0,
+      monthlyContribution: monthlyContribution,
       projectedAtRetirement: m.projected_future_assets ?? 0,
       savingsGap: m.net_corpus_to_build ?? 0,
     });
 
-    setAgentOutput(data.plan ?? "");
+    // 3. Set Agent Output
+    setAgentOutput(data.plan ?? "Analyzing your financial profile...");
   }, [results]);
-
 
   if (!results) {
     return (
@@ -91,19 +188,18 @@ const ResultsPage = ({
     <div className="min-h-screen bg-gradient-to-br from-background via-primary/5 to-accent/5 py-12">
       <div className="container mx-auto max-w-6xl px-4">
         {/* Header */}
-        <div className="mb-10 text-center">
+        <div className="mb-10 text-center animate-in fade-in slide-in-from-top-4 duration-700">
           <div className="mb-4 inline-flex items-center justify-center rounded-full bg-success/10 p-3">
             <CheckCircle2 className="h-8 w-8 text-success" />
           </div>
           <h1 className="text-4xl font-bold">Retirement Overview</h1>
           <p className="text-muted-foreground mt-2">
-            Here’s your complete personalized retirement and investment
-            analysis.
+            Here’s your complete personalized retirement and investment analysis.
           </p>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3 mb-8">
+        <div className="grid gap-4 md:grid-cols-3 mb-8 animate-in fade-in slide-in-from-bottom-4 duration-700 delay-100">
           <Card>
             <CardHeader>
               <CardDescription>Years to Retirement</CardDescription>
@@ -134,19 +230,27 @@ const ResultsPage = ({
         </div>
 
         {/* AI Insights */}
-        <Card className="mb-10">
-          <CardHeader>
-            <CardTitle>AI Advisor Insights</CardTitle>
+        <Card className="mb-10 shadow-lg border-primary/10 animate-in fade-in zoom-in-95 duration-700 delay-200">
+          <CardHeader className="bg-primary/5 border-b border-primary/10">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+              <CardTitle>AI Advisor Insights</CardTitle>
+            </div>
             <CardDescription>
-              Smart suggestions tailored to your financial profile
+              Personalized strategy tailored to your profile
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-muted-foreground whitespace-pre-line leading-relaxed">
-              {agentOutput}
-            </p>
+          <CardContent className="p-6 md:p-8 bg-card">
+            {agentOutput ? (
+              <StreamedContent content={agentOutput} />
+            ) : (
+              <div className="flex items-center gap-2 text-muted-foreground italic">
+                <span className="animate-spin">⏳</span> Generating financial plan...
+              </div>
+            )}
 
-            <div className="mt-6 flex justify-end">
+            {/* Action Buttons */}
+            <div className="mt-8 flex justify-end pt-4 border-t">
               <Button
                 onClick={() =>
                   navigate("/chat", {
@@ -156,14 +260,14 @@ const ResultsPage = ({
                 className="gap-2"
               >
                 <MessageCircle className="h-4 w-4" />
-                Continue Chatting
+                Ask Follow-up Questions
               </Button>
             </div>
           </CardContent>
         </Card>
 
-        {/* Projection */}
-        <Card className="mb-10">
+        {/* Projection Data */}
+        <Card className="mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-300">
           <CardHeader>
             <CardTitle>Projected Savings</CardTitle>
             <CardDescription>
@@ -180,6 +284,7 @@ const ResultsPage = ({
               </div>
               <div>
                 <p>Monthly Contribution</p>
+                <p className="text-xs text-muted-foreground">(Income - Expenses)</p>
                 <h3 className="text-2xl font-semibold text-blue-600">
                   {formatCurrency(projection.monthlyContribution)}
                 </h3>
@@ -207,7 +312,7 @@ const ResultsPage = ({
         </Card>
 
         {/* Goal Progress */}
-        <Card className="mb-10">
+        <Card className="mb-10 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-500">
           <CardHeader>
             <CardTitle>Goal Progress</CardTitle>
           </CardHeader>
@@ -219,30 +324,15 @@ const ResultsPage = ({
           </CardContent>
         </Card>
 
-        {/* Important Note */}
-        <Card className="mb-8 border-info/50 bg-info/5">
-          <CardContent className="flex gap-3 pt-6">
-            <AlertCircle className="h-5 w-5 shrink-0 text-info" />
-            <div className="space-y-1">
-              <p className="font-medium">Important Note</p>
-              <p className="text-sm text-muted-foreground">
-                These recommendations are generated by AI based on your inputs.
-                Please consult a certified financial advisor before taking major
-                financial decisions.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Actions */}
-        <div className="flex flex-col sm:flex-row justify-center gap-4">
-          <Button size="lg" onClick={onBackToHome} className="gap-2">
+        <div className="flex flex-col sm:flex-row justify-center gap-4 pb-12">
+          <Button size="lg" variant="secondary" onClick={onBackToHome} className="gap-2">
             <Home className="h-4 w-4" />
             Back to Home
           </Button>
           <Button size="lg" variant="outline" className="gap-2">
             <TrendingUp className="h-4 w-4" />
-            Download Report
+            Download PDF Report
           </Button>
         </div>
       </div>

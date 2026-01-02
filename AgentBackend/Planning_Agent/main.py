@@ -1,5 +1,5 @@
 from typing import TypedDict, Literal
-from langgraph.graph import StateGraph,START,END
+from langgraph.graph import StateGraph,END
 from .session_manager import insert
 import numpy_financial as npf
 from datetime import datetime
@@ -8,7 +8,6 @@ import json
 from .ML_models import get_goal_classification,risk_appetite_pred
 from .prompts import create_master_prompt,get_general_chat_prompt
 
-import ollama
 import os
 from groq import Groq
 from dotenv import load_dotenv
@@ -330,17 +329,6 @@ def plan_generator(state:AgentState) ->AgentState :
     print("==========================Inside Plan generator==========================")
 
     final_prompt= create_master_prompt(state)
-    # result= ollama.chat(
-    #     model="phi3:mini",
-    #     messages=[{ "role":"user" ,"content" :final_prompt }],
-    #     stream=True
-    # )
-
-    # for i in result:
-    #     print(i["message"]["content"], end="", flush=True)
-
-
-
     response_text = ""
 
 
@@ -354,7 +342,7 @@ def plan_generator(state:AgentState) ->AgentState :
     stream = client.chat.completions.create(
         model="llama-3.1-8b-instant",
         messages=[
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": "You are FinCoach, a professional financial advisor in India."},
             *state.get("messages", []),
             {"role": "user", "content": final_prompt}
         ],
