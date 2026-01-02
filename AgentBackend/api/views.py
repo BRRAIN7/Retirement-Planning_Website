@@ -294,7 +294,27 @@ class SubmitFinancialDataView(APIView):
         # Save the Plan as the first assistant message
         save_message(user, "assistant", plan)
 
-        return Response({"plan": plan}, status=status.HTTP_200_OK)
+        
+        retirement_plan = result.get("retirement_plan", {})
+        user_profile = result.get("user_profile", {})
+
+        response_payload = {
+            "plan": plan,
+
+            "metrics": {
+                "years_to_retirement": retirement_plan.get("years_to_retirement"),
+                "monthly_surplus": float(user_profile.get("monthly_surplus", 0)),
+                "required_retirement_sip": float(retirement_plan.get("required_sip", 0)),
+                "gross_retirement_corpus": float(retirement_plan.get("gross_corpus", 0)),
+                "projected_future_assets": float(retirement_plan.get("projected_future_assets", 0)),
+                "net_corpus_to_build": float(retirement_plan.get("net_corpus_to_build", 0)),
+            },
+
+            "goals": result.get("goals", []),
+            "feasibility": result.get("feasibility", {}),
+        }
+
+        return Response(response_payload, status=status.HTTP_200_OK)
 
 
 # ==========================================

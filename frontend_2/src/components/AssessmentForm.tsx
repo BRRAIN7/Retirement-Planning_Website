@@ -74,9 +74,9 @@ const AssessmentForm = ({
       desired_retirement_age: "",
       retirement_lifestyle_description: "",
       desired_retirement_expenses_inr: "",
-      risk_tolerance_score: -1,
+      risk_tolerance_score: 1,
       investment_preferences: "",
-      annual_savings_rate_percent: "-1",
+      annual_savings_rate_percent: "0",
     },
   });
 
@@ -200,9 +200,10 @@ const AssessmentForm = ({
       toast.success("Plan submitted successfully!");
 
       // 🔥 2. Send real results to router
+      console.log("BACKEND RESPONSE:", data);
       onComplete({
         formData,
-        aiPlan: data.plan,
+        backendResult: data,
       });
     } catch (err) {
       console.warn("Backend not responding — using fallback result");
@@ -295,11 +296,10 @@ const AssessmentForm = ({
     const { personal_info, financial_info, goals, retirement_info } = formData;
 
     switch (step) {
-case 1:
+      case 1:
         return (
           // Keep space-y-4 (or space-y-6) here to handle spacing BETWEEN the groups
           <div className="space-y-4">
-
             {/* Name Group */}
             <div className="space-y-2">
               <Label htmlFor="name">Your Name</Label>
@@ -333,7 +333,9 @@ case 1:
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   if (value <= 100) {
-                    handleNestedChange(["personal_info", "current_age"])(e as any);
+                    handleNestedChange(["personal_info", "current_age"])(
+                      e as any
+                    );
                   }
                 }}
               />
@@ -398,10 +400,9 @@ case 1:
                 onChange={(e) => {
                   const value = Number(e.target.value);
                   if (value <= 20) {
-                    handleNestedChange([
-                      "personal_info",
-                      "number_of_children",
-                    ])(e as any);
+                    handleNestedChange(["personal_info", "number_of_children"])(
+                      e as any
+                    );
                   }
                 }}
               />
@@ -409,7 +410,7 @@ case 1:
           </div>
         );
 
-case 2:
+      case 2:
         return (
           <div className="space-y-6">
             {/* --- Section 1: Income --- */}
@@ -424,8 +425,15 @@ case 2:
                   min={0}
                   placeholder="e.g. 1200000"
                   value={financial_info.income.annual}
-                  onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
-                  onChange={handleNestedChange(["financial_info", "income", "annual"])}
+                  onKeyDown={(e) =>
+                    ["e", "E", "+", "-", "."].includes(e.key) &&
+                    e.preventDefault()
+                  }
+                  onChange={handleNestedChange([
+                    "financial_info",
+                    "income",
+                    "annual",
+                  ])}
                 />
               </div>
             </div>
@@ -436,7 +444,8 @@ case 2:
                 💸Monthly Expense Breakdown
               </h3>
               <p className="text-sm text-muted-foreground -mt-2">
-                Break down your monthly spending. The total is calculated automatically.
+                Break down your monthly spending. The total is calculated
+                automatically.
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -448,17 +457,35 @@ case 2:
                     min={0}
                     placeholder="0"
                     value={financial_info.expenses.components.loan_emis}
-                    onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-", "."].includes(e.key) &&
+                      e.preventDefault()
+                    }
                     onChange={(e) => {
                       const val = e.target.value;
                       // Update Component
-                      updateNestedValue(["financial_info", "expenses", "components", "loan_emis"], val);
-                      
+                      updateNestedValue(
+                        [
+                          "financial_info",
+                          "expenses",
+                          "components",
+                          "loan_emis",
+                        ],
+                        val
+                      );
+
                       // Auto-calculate Total
                       const emi = Number(val) || 0;
-                      const sips = Number(financial_info.expenses.components.investment_sips) || 0;
-                      const misc = Number(financial_info.expenses.components.misc) || 0;
-                      updateNestedValue(["financial_info", "expenses", "monthly_total"], (emi + sips + misc).toString());
+                      const sips =
+                        Number(
+                          financial_info.expenses.components.investment_sips
+                        ) || 0;
+                      const misc =
+                        Number(financial_info.expenses.components.misc) || 0;
+                      updateNestedValue(
+                        ["financial_info", "expenses", "monthly_total"],
+                        (emi + sips + misc).toString()
+                      );
                     }}
                   />
                 </div>
@@ -471,15 +498,32 @@ case 2:
                     min={0}
                     placeholder="0"
                     value={financial_info.expenses.components.investment_sips}
-                    onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-", "."].includes(e.key) &&
+                      e.preventDefault()
+                    }
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateNestedValue(["financial_info", "expenses", "components", "investment_sips"], val);
-                      
+                      updateNestedValue(
+                        [
+                          "financial_info",
+                          "expenses",
+                          "components",
+                          "investment_sips",
+                        ],
+                        val
+                      );
+
                       const sips = Number(val) || 0;
-                      const emi = Number(financial_info.expenses.components.loan_emis) || 0;
-                      const misc = Number(financial_info.expenses.components.misc) || 0;
-                      updateNestedValue(["financial_info", "expenses", "monthly_total"], (emi + sips + misc).toString());
+                      const emi =
+                        Number(financial_info.expenses.components.loan_emis) ||
+                        0;
+                      const misc =
+                        Number(financial_info.expenses.components.misc) || 0;
+                      updateNestedValue(
+                        ["financial_info", "expenses", "monthly_total"],
+                        (emi + sips + misc).toString()
+                      );
                     }}
                   />
                 </div>
@@ -492,15 +536,29 @@ case 2:
                     min={0}
                     placeholder="0"
                     value={financial_info.expenses.components.misc}
-                    onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-", "."].includes(e.key) &&
+                      e.preventDefault()
+                    }
                     onChange={(e) => {
                       const val = e.target.value;
-                      updateNestedValue(["financial_info", "expenses", "components", "misc"], val);
-                      
+                      updateNestedValue(
+                        ["financial_info", "expenses", "components", "misc"],
+                        val
+                      );
+
                       const misc = Number(val) || 0;
-                      const emi = Number(financial_info.expenses.components.loan_emis) || 0;
-                      const sips = Number(financial_info.expenses.components.investment_sips) || 0;
-                      updateNestedValue(["financial_info", "expenses", "monthly_total"], (emi + sips + misc).toString());
+                      const emi =
+                        Number(financial_info.expenses.components.loan_emis) ||
+                        0;
+                      const sips =
+                        Number(
+                          financial_info.expenses.components.investment_sips
+                        ) || 0;
+                      updateNestedValue(
+                        ["financial_info", "expenses", "monthly_total"],
+                        (emi + sips + misc).toString()
+                      );
                     }}
                   />
                 </div>
@@ -510,18 +568,27 @@ case 2:
               <div className="pt-2">
                 <div className="bg-muted/50 p-4 rounded-md border border-dashed border-primary/30 flex justify-between items-center">
                   <div className="space-y-1">
-                    <Label className="text-base font-semibold text-primary">Total Monthly Expenses</Label>
-                    <p className="text-xs text-muted-foreground">Sum of EMIs + SIPs + Misc</p>
+                    <Label className="text-base font-semibold text-primary">
+                      Total Monthly Expenses
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      Sum of EMIs + SIPs + Misc
+                    </p>
                   </div>
                   <div className="text-2xl font-bold">
-                    ₹{Number(financial_info.expenses.monthly_total).toLocaleString()}
+                    ₹
+                    {Number(
+                      financial_info.expenses.monthly_total
+                    ).toLocaleString()}
                   </div>
                 </div>
               </div>
 
               {/* Debt Section - Kept separate as requested in original flow */}
               <div className="pt-4 border-t">
-                <h4 className="font-medium mb-3 text-sm">Liabilities Snapshot</h4>
+                <h4 className="font-medium mb-3 text-sm">
+                  Liabilities Snapshot
+                </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Total Outstanding Debt (₹)</Label>
@@ -529,8 +596,15 @@ case 2:
                       type="number"
                       min={0}
                       value={financial_info.liabilities.total_debt}
-                      onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
-                      onChange={handleNestedChange(["financial_info", "liabilities", "total_debt"])}
+                      onKeyDown={(e) =>
+                        ["e", "E", "+", "-", "."].includes(e.key) &&
+                        e.preventDefault()
+                      }
+                      onChange={handleNestedChange([
+                        "financial_info",
+                        "liabilities",
+                        "total_debt",
+                      ])}
                     />
                   </div>
                   <div className="space-y-2">
@@ -538,9 +612,18 @@ case 2:
                     <Input
                       type="number"
                       min={0}
-                      value={financial_info.liabilities.monthly_debt_contribution}
-                      onKeyDown={(e) => ["e", "E", "+", "-", "."].includes(e.key) && e.preventDefault()}
-                      onChange={handleNestedChange(["financial_info", "liabilities", "monthly_debt_contribution"])}
+                      value={
+                        financial_info.liabilities.monthly_debt_contribution
+                      }
+                      onKeyDown={(e) =>
+                        ["e", "E", "+", "-", "."].includes(e.key) &&
+                        e.preventDefault()
+                      }
+                      onChange={handleNestedChange([
+                        "financial_info",
+                        "liabilities",
+                        "monthly_debt_contribution",
+                      ])}
                     />
                   </div>
                 </div>
@@ -549,27 +632,27 @@ case 2:
           </div>
         );
 
-case 3:
+      case 3:
         const a = financial_info.assets;
-        
+
         // Helper to calculate current total percentage
-        const currentTotalPct = 
-          Number(a.portfolio_breakdown_percent.equity || 0) + 
-          Number(a.portfolio_breakdown_percent.mutual_funds || 0) + 
-          Number(a.portfolio_breakdown_percent.gold || 0) + 
-          Number(a.portfolio_breakdown_percent.crypto || 0) + 
+        const currentTotalPct =
+          Number(a.portfolio_breakdown_percent.equity || 0) +
+          Number(a.portfolio_breakdown_percent.mutual_funds || 0) +
+          Number(a.portfolio_breakdown_percent.gold || 0) +
+          Number(a.portfolio_breakdown_percent.crypto || 0) +
           Number(a.portfolio_breakdown_percent.other || 0);
 
         // Helper to determine status color
         const getStatusColor = (total: number) => {
-          if (total === 100) return "text-green-600 bg-green-50 border-green-200";
+          if (total === 100)
+            return "text-green-600 bg-green-50 border-green-200";
           if (total > 100) return "text-red-600 bg-red-50 border-red-200";
           return "text-amber-600 bg-amber-50 border-amber-200";
         };
 
         return (
           <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            
             {/* --- SECTION 1: FIXED INCOME & SAVINGS --- */}
             <div className="space-y-4">
               <h3 className="font-semibold text-lg border-b pb-2">
@@ -583,8 +666,15 @@ case 3:
                     min="0"
                     placeholder="0"
                     value={a.savings.epf}
-                    onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                    onChange={handleNestedChange(["financial_info", "assets", "savings", "epf"])}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                    }
+                    onChange={handleNestedChange([
+                      "financial_info",
+                      "assets",
+                      "savings",
+                      "epf",
+                    ])}
                   />
                 </div>
                 <div className="space-y-2">
@@ -594,8 +684,15 @@ case 3:
                     min="0"
                     placeholder="0"
                     value={a.savings.ppf}
-                    onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                    onChange={handleNestedChange(["financial_info", "assets", "savings", "ppf"])}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                    }
+                    onChange={handleNestedChange([
+                      "financial_info",
+                      "assets",
+                      "savings",
+                      "ppf",
+                    ])}
                   />
                 </div>
                 <div className="space-y-2">
@@ -605,8 +702,15 @@ case 3:
                     min="0"
                     placeholder="0"
                     value={a.savings.nps}
-                    onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                    onChange={handleNestedChange(["financial_info", "assets", "savings", "nps"])}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                    }
+                    onChange={handleNestedChange([
+                      "financial_info",
+                      "assets",
+                      "savings",
+                      "nps",
+                    ])}
                   />
                 </div>
                 <div className="space-y-2">
@@ -616,8 +720,15 @@ case 3:
                     min="0"
                     placeholder="0"
                     value={a.savings.bank_savings}
-                    onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                    onChange={handleNestedChange(["financial_info", "assets", "savings", "bank_savings"])}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                    }
+                    onChange={handleNestedChange([
+                      "financial_info",
+                      "assets",
+                      "savings",
+                      "bank_savings",
+                    ])}
                   />
                 </div>
               </div>
@@ -626,14 +737,12 @@ case 3:
             {/* --- SECTION 2: EMERGENCY FUND --- */}
             <div className="space-y-4 pt-2">
               <div className="border-l-4 border-primary pl-4">
-                <h3 className="font-semibold text-lg">
-                  2. Emergency Fund
-                </h3>
+                <h3 className="font-semibold text-lg">2. Emergency Fund</h3>
                 <p className="text-sm text-muted-foreground">
                   Liquid cash set aside strictly for emergencies.
                 </p>
               </div>
-              
+
               <div className="space-y-2">
                 <Label>Amount (₹)</Label>
                 <Input
@@ -641,8 +750,14 @@ case 3:
                   min="0"
                   placeholder="0"
                   value={a.emergency_fund}
-                  onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                  onChange={handleNestedChange(["financial_info", "assets", "emergency_fund"])}
+                  onKeyDown={(e) =>
+                    ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                  }
+                  onChange={handleNestedChange([
+                    "financial_info",
+                    "assets",
+                    "emergency_fund",
+                  ])}
                 />
               </div>
             </div>
@@ -652,9 +767,10 @@ case 3:
               <h3 className="font-semibold text-lg border-b pb-2">
                 3. Market Investments
               </h3>
-              
+
               <p className="text-sm text-muted-foreground">
-                <span className="font-bold text-foreground">Note:</span> Do NOT include your EPF or Bank Savings inside "Total Investments".
+                <span className="font-bold text-foreground">Note:</span> Do NOT
+                include your EPF or Bank Savings inside "Total Investments".
               </p>
 
               <div className="space-y-6">
@@ -665,8 +781,14 @@ case 3:
                     min="0"
                     placeholder="0"
                     value={a.total_investments}
-                    onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                    onChange={handleNestedChange(["financial_info", "assets", "total_investments"])}
+                    onKeyDown={(e) =>
+                      ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                    }
+                    onChange={handleNestedChange([
+                      "financial_info",
+                      "assets",
+                      "total_investments",
+                    ])}
                   />
                 </div>
 
@@ -674,58 +796,81 @@ case 3:
                 <div className="space-y-4">
                   <div className="flex justify-between items-end">
                     <Label className="mb-1">Portfolio Breakdown (%)</Label>
-                    <div className={`text-xs font-semibold px-3 py-1 rounded border ${getStatusColor(currentTotalPct)}`}>
+                    <div
+                      className={`text-xs font-semibold px-3 py-1 rounded border ${getStatusColor(
+                        currentTotalPct
+                      )}`}
+                    >
                       Total: {currentTotalPct}% / 100%
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {["equity", "mutual_funds", "gold", "crypto", "other"].map((key) => (
-                      <div key={key} className="space-y-1">
-                        <Label className="text-xs text-muted-foreground capitalize">
-                          {key.replace('_', ' ')}
-                        </Label>
-                        <div className="relative">
-                          <Input
-                            type="number"
-                            min="0"
-                            max="100" // HTML constraint
-                            className={`pr-6 ${currentTotalPct > 100 ? "border-red-300 focus-visible:ring-red-200" : ""}`}
-                            placeholder="0"
-                            value={a.portfolio_breakdown_percent[key as keyof typeof a.portfolio_breakdown_percent]}
-                            onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
-                            onChange={(e) => {
-                              // Custom handler to clamp value at 100
-                              let val = Number(e.target.value);
-                              if (val > 100) val = 100; // Hard clamp
-                              if (val < 0) val = 0;
-                              
-                              // We need to manually call updateNestedValue or mimic handleNestedChange here
-                              // Since handleNestedChange is a wrapper, we can just call it with the string value
-                              const syntheticEvent = { target: { value: val.toString() } };
-                              handleNestedChange([
-                                "financial_info",
-                                "assets",
-                                "portfolio_breakdown_percent",
-                                key,
-                              ])(syntheticEvent as any);
-                            }}
-                          />
-                          <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">%</span>
+                    {["equity", "mutual_funds", "gold", "crypto", "other"].map(
+                      (key) => (
+                        <div key={key} className="space-y-1">
+                          <Label className="text-xs text-muted-foreground capitalize">
+                            {key.replace("_", " ")}
+                          </Label>
+                          <div className="relative">
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100" // HTML constraint
+                              className={`pr-6 ${
+                                currentTotalPct > 100
+                                  ? "border-red-300 focus-visible:ring-red-200"
+                                  : ""
+                              }`}
+                              placeholder="0"
+                              value={
+                                a.portfolio_breakdown_percent[
+                                  key as keyof typeof a.portfolio_breakdown_percent
+                                ]
+                              }
+                              onKeyDown={(e) =>
+                                ["e", "E", "+", "-"].includes(e.key) &&
+                                e.preventDefault()
+                              }
+                              onChange={(e) => {
+                                // Custom handler to clamp value at 100
+                                let val = Number(e.target.value);
+                                if (val > 100) val = 100; // Hard clamp
+                                if (val < 0) val = 0;
+
+                                // We need to manually call updateNestedValue or mimic handleNestedChange here
+                                // Since handleNestedChange is a wrapper, we can just call it with the string value
+                                const syntheticEvent = {
+                                  target: { value: val.toString() },
+                                };
+                                handleNestedChange([
+                                  "financial_info",
+                                  "assets",
+                                  "portfolio_breakdown_percent",
+                                  key,
+                                ])(syntheticEvent as any);
+                              }}
+                            />
+                            <span className="absolute right-3 top-2.5 text-xs text-muted-foreground">
+                              %
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
 
                   {/* Explicit Error Messages */}
                   {currentTotalPct > 100 && (
                     <p className="text-sm font-medium text-red-600 flex items-center animate-in slide-in-from-top-1">
-                       ⚠️ Total exceeds 100%. Please reduce {currentTotalPct - 100}%.
+                      ⚠️ Total exceeds 100%. Please reduce{" "}
+                      {currentTotalPct - 100}%.
                     </p>
                   )}
                   {Number(a.total_investments) > 0 && currentTotalPct < 100 && (
                     <p className="text-sm font-medium text-amber-600 flex items-center animate-in slide-in-from-top-1">
-                       ⚠️ Allocation is incomplete. You have {100 - currentTotalPct}% remaining.
+                      ⚠️ Allocation is incomplete. You have{" "}
+                      {100 - currentTotalPct}% remaining.
                     </p>
                   )}
                 </div>
@@ -734,7 +879,7 @@ case 3:
           </div>
         );
 
-case 4:
+      case 4:
       case 5:
       case 6:
         const type =
@@ -744,7 +889,10 @@ case 4:
         return (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {list.map((g, i) => (
-              <div key={i} className="relative p-4 bg-muted/50 rounded border border-muted space-y-3">
+              <div
+                key={i}
+                className="relative p-4 bg-muted/50 rounded border border-muted space-y-3"
+              >
                 <button
                   type="button"
                   onClick={() => removeGoal(type, i)}
@@ -788,14 +936,15 @@ case 4:
               </div>
             ))}
 
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               onClick={() => addGoal(type)}
               className="w-full border-dashed"
             >
-              + Add {step === 4 ? "Short" : step === 5 ? "Medium" : "Long"} Term Goal
+              + Add {step === 4 ? "Short" : step === 5 ? "Medium" : "Long"} Term
+              Goal
             </Button>
-            
+
             {list.length === 0 && (
               <p className="text-sm text-center text-muted-foreground italic">
                 No goals added yet. Click above to add one.
@@ -804,7 +953,7 @@ case 4:
           </div>
         );
 
-case 7:
+      case 7:
         return (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {/* Desired Retirement Age */}
@@ -816,7 +965,9 @@ case 7:
                 max="99"
                 placeholder="e.g. 60"
                 value={retirement_info.desired_retirement_age}
-                onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                onKeyDown={(e) =>
+                  ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                }
                 onChange={(e) => {
                   const val = e.target.value;
                   // Only update if empty (deletion) or <= 99
@@ -838,7 +989,9 @@ case 7:
                 min="0"
                 placeholder="Enter your desired monthly expenses during retirement"
                 value={retirement_info.desired_retirement_expenses_inr}
-                onKeyDown={(e) => ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()}
+                onKeyDown={(e) =>
+                  ["e", "E", "+", "-"].includes(e.key) && e.preventDefault()
+                }
                 onChange={handleNestedChange([
                   "retirement_info",
                   "desired_retirement_expenses_inr",
@@ -864,7 +1017,9 @@ case 7:
                   <SelectItem value="Conservative">Conservative</SelectItem>
                   <SelectItem value="Balanced">Balanced</SelectItem>
                   <SelectItem value="Growth">Growth</SelectItem>
-                  <SelectItem value="Aggressive Growth">Aggressive Growth (High Risk)</SelectItem>
+                  <SelectItem value="Aggressive Growth">
+                    Aggressive Growth (High Risk)
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -945,13 +1100,31 @@ case 7:
                 <Button
                   onClick={nextStep}
                   disabled={
-                    isSubmitting || 
-                    (step === 3 && Number(formData.financial_info.assets.total_investments) > 0 && 
-                    (Number(formData.financial_info.assets.portfolio_breakdown_percent.equity || 0) + 
-                      Number(formData.financial_info.assets.portfolio_breakdown_percent.mutual_funds || 0) + 
-                      Number(formData.financial_info.assets.portfolio_breakdown_percent.gold || 0) + 
-                      Number(formData.financial_info.assets.portfolio_breakdown_percent.crypto || 0) + 
-                      Number(formData.financial_info.assets.portfolio_breakdown_percent.other || 0)) !== 100)
+                    isSubmitting ||
+                    (step === 3 &&
+                      Number(formData.financial_info.assets.total_investments) >
+                        0 &&
+                      Number(
+                        formData.financial_info.assets
+                          .portfolio_breakdown_percent.equity || 0
+                      ) +
+                        Number(
+                          formData.financial_info.assets
+                            .portfolio_breakdown_percent.mutual_funds || 0
+                        ) +
+                        Number(
+                          formData.financial_info.assets
+                            .portfolio_breakdown_percent.gold || 0
+                        ) +
+                        Number(
+                          formData.financial_info.assets
+                            .portfolio_breakdown_percent.crypto || 0
+                        ) +
+                        Number(
+                          formData.financial_info.assets
+                            .portfolio_breakdown_percent.other || 0
+                        ) !==
+                        100)
                   }
                   className="flex-1"
                 >

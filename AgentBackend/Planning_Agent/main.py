@@ -4,7 +4,7 @@ from .session_manager import insert
 import numpy_financial as npf
 from datetime import datetime
 from .feasibility import warnings_generator
-
+import json
 from .ML_models import get_goal_classification,risk_appetite_pred
 from .prompts import create_master_prompt,get_general_chat_prompt
 
@@ -13,7 +13,7 @@ import os
 from groq import Groq
 from dotenv import load_dotenv
 
-class AgentState(TypedDict):
+class AgentState(TypedDict, total=False):
     input_data:dict
     risk_appetite : str
     feasibility: dict
@@ -329,50 +329,51 @@ def plan_generator(state:AgentState) ->AgentState :
     print(" ")
     print("==========================Inside Plan generator==========================")
 
-    # final_prompt= create_master_prompt(state)
-    # # result= ollama.chat(
-    # #     model="phi3:mini",
-    # #     messages=[{ "role":"user" ,"content" :final_prompt }],
-    # #     stream=True
-    # # )
-
-    # # for i in result:
-    # #     print(i["message"]["content"], end="", flush=True)
-
-
-
-    # response_text = ""
-
-
-    # load_dotenv()
-    # api_key = os.getenv("GROQ_API_KEY")
-
-
-    # client = Groq(api_key=api_key)
-
-    # # Send request and stream response
-    # stream = client.chat.completions.create(
-    #     model="llama-3.1-8b-instant",
-    #     messages=[
-    #         {"role": "system", "content": "You are a helpful assistant."},
-    #         {"role": "user", "content": final_prompt}
-    #     ],
-    #     stream=True  # Enable streaming
+    final_prompt= create_master_prompt(state)
+    # result= ollama.chat(
+    #     model="phi3:mini",
+    #     messages=[{ "role":"user" ,"content" :final_prompt }],
+    #     stream=True
     # )
 
+    # for i in result:
+    #     print(i["message"]["content"], end="", flush=True)
 
-    # print("\nResponse:\n")
-    # for chunk in stream:
-    #     delta = chunk.choices[0].delta.content
-    #     if delta:
-    #         print(delta, end="", flush=True)
-    #         response_text += delta  # collect it
 
-    # print("\n\n--- End of Response ---")
 
-    # # store in state
-    # state["plan"] = response_text.strip()
-    # state["formatted_output"] = response_text.strip()
+    response_text = ""
+
+
+    load_dotenv()
+    api_key = os.getenv("GROQ_API_KEY")
+
+
+    client = Groq(api_key=api_key)
+
+    # Send request and stream response
+    stream = client.chat.completions.create(
+        model="llama-3.1-8b-instant",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            *state.get("messages", []),
+            {"role": "user", "content": final_prompt}
+        ],
+        stream=True  # Enable streaming
+    )
+
+
+    print("\nResponse:\n")
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            print(delta, end="", flush=True)
+            response_text += delta  # collect it
+
+    print("\n\n--- End of Response ---")
+
+    # store in state
+    state["plan"] = response_text.strip()
+    state["formatted_output"] = response_text.strip()
     return state
 
 def output(state:AgentState)-> AgentState:
@@ -384,76 +385,160 @@ def output(state:AgentState)-> AgentState:
 def goal_parser(state:AgentState)->AgentState:
     print(" ")
     print("==========================Inside goal parser==========================")
+    # Safety
+    if not state.get("messages"):
+        state["pending_update"] = None
+        return state
+
+    user_msg = state["messages"][-1]["content"]
+
+    # Format goals for LLM grounding
+    goals_str = ", ".join(
+        f"{g['name']} ({g['target_amount']})" for g in state.get("goals", [])
+    )
+
+    system_prompt = f"""
+You are an intent parser for a financial planning system.
+
+Current goals:
+{goals_str}
+
+User wants to MODIFY something in their financial profile.
+
+Return ONLY valid JSON in one of these formats.
+
+GOAL UPDATE:
+{{
+  "action": "update",
+  "entity": "goal",
+  "identifier": "<exact goal name from list>",
+  "field": "target_amount",
+  "value": <number>
+}}
+
+RETIREMENT UPDATE:
+{{
+  "action": "update",
+  "entity": "retirement",
+  "field": "desired_retirement_age",
+  "value": <number>
+}}
+
+If request is unclear or unsupported:
+{{ "action": "none" }}
+"""
+
+    try:
+        load_dotenv()
+        api_key = os.getenv("GROQ_API_KEY")
+        client = Groq(api_key=api_key)
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_msg}
+            ],
+            response_format={"type": "json_object"}
+        )
+
+        parsed = json.loads(response.choices[0].message.content)
+        print("Parsed state update:", parsed)
+        state["pending_update"] = parsed
+
+    except Exception as e:
+        print("State update parsing failed:", e)
+        state["pending_update"] = None
+
     return state
 def update_state(state:AgentState)->AgentState:
     print(" ")
     print("==========================Inside update state==========================")
+    update = state.get("pending_update")
+
+    if not update or update.get("action") != "update":
+        print("No valid update to apply.")
+        return state
+
+    # --- GOAL UPDATE ---
+    if update["entity"] == "goal":
+        for goal in state.get("goals", []):
+            if goal["name"] == update["identifier"]:
+                old_val = goal.get(update["field"])
+                goal[update["field"]] = update["value"]
+                print(
+                    f"Updated goal '{goal['name']}': "
+                    f"{old_val} → {update['value']}"
+                )
+                break
+
+    # --- RETIREMENT UPDATE ---
+    elif update["entity"] == "retirement":
+        retirement_info = state["user_profile"]["retirement_info"]
+
+        old_val = retirement_info.get(update["field"])
+        retirement_info[update["field"]] = update["value"]
+
+        print(
+            f"Updated retirement field '{update['field']}': "
+            f"{old_val} → {update['value']}"
+        )
+
+    # Cleanup
+    state["pending_update"] = None
     return state
 
 
 def general_chat(state: AgentState) -> AgentState:
-    print(" ")
     print("==========================Inside General Chat==========================")
-    
-    messages = state.get("messages", [])
-    user_message = messages[-1]["content"] if messages else "Hello"
 
-    user_profile = state.get("user_profile", {})
-    user_name = user_profile.get("name", "User")
-    
- 
-    feasibility_report = state.get("feasibility", "No financial plan generated yet.")
-    
-  
-    system_prompt = get_general_chat_prompt(user_name, feasibility_report)
+    messages = state.get("messages")
+    if not messages:
+        raise RuntimeError("general_chat called with empty or missing messages")
 
- 
+    if messages[-1]["role"] != "user":
+        raise RuntimeError("ChatView must append user message before invoking graph")
+
+    system_prompt = get_general_chat_prompt(
+        state.get("user_profile", {}).get("name", "User"),
+        state.get("feasibility", {})
+    )
+
+    messages_for_llm = [
+        {"role": "system", "content": system_prompt},
+        *messages
+    ]
+
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-    response = client.chat.completions.create(
+    stream = client.chat.completions.create(
         model="llama-3.1-8b-instant",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message}
-        ],
-        temperature=0.7
+        messages=messages_for_llm,
+        temperature=0.7,
+        stream=True
     )
-    
-    ai_response = response.choices[0].message.content
 
-    # SAVE OUTPUT 
-    # what about storing it in messeges???
+    response_text = ""
+    for chunk in stream:
+        delta = chunk.choices[0].delta.content
+        if delta:
+            response_text += delta
 
-    
+    state["formatted_output"] = response_text.strip()
     return state
 
 def decider(state) -> Literal["new_user", "modify", "chat"]:
     print("==========================Inside DECIDER ==========================")
     messages = state.get("messages", [])
 
-    # If no messages received, treat as new user
-    if len(messages) == 0:
-        print("TAKING THE NEW USER PATH")
+    if not messages:
         return "new_user"
 
     msg = messages[-1]["content"].lower()
-
-    # Detect if the user_profile is missing or incomplete
-    profile = state.get("user_profile", {})
-
-    # If user_profile is missing OR has no age (core field), treat as new user
-    if not profile or not profile.get("age"):
-        print("TAKING THE NEW USER PATH")
-        return "new_user"
-
-    # Modify keywords routing
     modify_keywords = ["change", "update", "modify", "what if", "increase", "decrease"]
-    if any(k in msg for k in modify_keywords):
-        print("TAKING THE MODIFY DETIALS PATH ")
+
+    if any(k in msg for k in modify_keywords) and state.get("goals"):
         return "modify"
 
-    # Default → normal chat
-    print(" TAKING THE NORMAL CHAT PATH ")
     return "chat"
 
 
