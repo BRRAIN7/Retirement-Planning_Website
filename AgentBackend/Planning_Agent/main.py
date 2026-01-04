@@ -150,132 +150,140 @@ INVESTMENT_RETURN_RATE = 0.12 # Assumed return for new investments
 EPF_RETURN_RATE = 0.0825
 PPF_RETURN_RATE = 0.071
 NPS_RETURN_RATE = 0.10 # Assuming a moderate-risk NPS portfolio
+from datetime import datetime
+import numpy_financial as npf
 
-def finantial_calc(state:AgentState) -> AgentState:
+from datetime import datetime
+import numpy_financial as npf
+
+# Constants (Ensure these are defined in your global scope or passed in)
+INFLATION_RATE = 0.06
+EPF_RETURN_RATE = 0.0815
+PPF_RETURN_RATE = 0.071
+NPS_RETURN_RATE = 0.10
+INVESTMENT_RETURN_RATE = 0.12
+
+def finantial_calc(state: AgentState) -> AgentState:
     print(" ")
     print("==========================Inside Financial Calculator==========================")
 
-
-    #1. calc the monthly surplus --> monthlyincome - monthly expenses
-
-    monthly_income=state["user_profile"]["income"]["annual"]/12
-    state["user_profile"]["income"]["monthly_income"]=monthly_income
-
-    monthly_surplus = state["user_profile"]["income"]["monthly_income"]-state["user_profile"]["expenses"]["monthly_total"]
-    state["user_profile"]["monthly_surplus"]=monthly_surplus
-
-    #2. Checking for emergency fund that i should have
-        #emergency fund = essential monthly expenses * 3 or 6  (for 3 months or 6 months)
+    # 1. SETUP: Calculate Monthly Surplus
+    monthly_income = state["user_profile"]["income"]["annual"] / 12
+    state["user_profile"]["income"]["monthly_income"] = monthly_income
     
-    essential_expenses= state["user_profile"]["expenses"]["monthly_total"]-state["user_profile"]["expenses"]["components"]["investment_sips"]
+    monthly_surplus = state["user_profile"]["income"]["monthly_income"] - state["user_profile"]["expenses"]["monthly_total"]
+    state["user_profile"]["monthly_surplus"] = monthly_surplus
 
-    target_emergency_fund=essential_expenses * 3 # kept a 3 month emergency fund for now
-    emergency_fund_sip=0
-    if state["user_profile"]["assets"]["emergency_fund"] < target_emergency_fund:
-        shortfall=  target_emergency_fund - state["user_profile"]["assets"]["emergency_fund"]
-        emergency_fund_sip = shortfall / 18
-        dictionary= {
-            "name":"Build Emergency Fund (very crucial)",
-            "target_amount": shortfall,
-            "term": "short_term",
-            "type": "Savings",
-            "required_monthly_investment": emergency_fund_sip 
-        }
-
-        state["goals"].append(dictionary)
-
-    print(state)
-    
-
-    #3 Perform the Complete Retirement Calculation
+    # 2. RETIREMENT CALCULATION (Mandatory)
     current_age = state["user_profile"]["age"]
-    
     desired_retirement_age = state["user_profile"]["retirement_info"]["desired_retirement_age"]
-
     years_to_retirement = desired_retirement_age - current_age
     
-    desired_monthly_expenses = state["user_profile"]["retirement_info"]["desired_retirement_expenses_inr"]
-    current_annual_base_expense = desired_monthly_expenses * 12
+    # Fallback Logic: If user enters 0, assume current lifestyle maintenance
+    desired_monthly_expenses_input = float(state["user_profile"]["retirement_info"].get("desired_retirement_expenses_inr", 0))
+    
+    if desired_monthly_expenses_input <= 0:
+        base_monthly_expense = state["user_profile"]["expenses"]["monthly_total"]
+        print(f"Retirement Input 0 detected. Defaulting to current expenses: {base_monthly_expense}")
+    else:
+        base_monthly_expense = desired_monthly_expenses_input
 
-    # a. Gross Corpus Calculation
+    current_annual_base_expense = base_monthly_expense * 12
+
+    # a. Gross Corpus (Inflated)
     future_annual_expenses = npf.fv(INFLATION_RATE, years_to_retirement, 0, -current_annual_base_expense)
-    gross_corpus = future_annual_expenses * 25 # Using the 4% rule (1/0.04 = 25)
-    print(f"Years to Retirement: {years_to_retirement}")
-    print(f"Future Annual Expenses (at retirement): ₹{future_annual_expenses:,.2f}")
-    print(f"Gross Retirement Corpus Needed: ₹{gross_corpus:,.2f}")
+    gross_corpus = future_annual_expenses * 25 
 
-    # b. Future Value of Existing Assets
+    # b. Future Assets
     projected_future_assets = 0
     assets = state["user_profile"]["assets"]
     
-    # Project EPF, PPF, NPS
-    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered 
-    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered 
-    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered 
+    projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) 
+    projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) 
+    projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) 
     
-    # Assume 80% of other investments are for retirement
     retirement_investments_pv = assets["total_investments"] * 0.80
     projected_future_assets += npf.fv(INVESTMENT_RETURN_RATE, years_to_retirement, 0, -retirement_investments_pv)
-    print(f"Projected Future Value of Existing Assets: ₹{projected_future_assets:,.2f}")
     
-    # c. Net Corpus (The Shortfall)
+    # c. Net Corpus & SIP
     net_corpus_to_build = gross_corpus - projected_future_assets
-    if net_corpus_to_build < 0:
-        net_corpus_to_build = 0 
-    print(f"Net Corpus (Shortfall) to Build: ₹{net_corpus_to_build:,.2f}") # Check for unrealistic maybe??
+    if net_corpus_to_build < 0: net_corpus_to_build = 0 
 
-    # d. Required SIP to cover the shortfall
     required_retirement_sip = 0
     if net_corpus_to_build > 0:
-        # Using numpy_financial.pmt to calculate the monthly payment
         required_retirement_sip = npf.pmt(
             rate=INVESTMENT_RETURN_RATE / 12, 
             nper=years_to_retirement * 12, 
             pv=0, 
             fv=-net_corpus_to_build
         )
-    print(f"Required Monthly SIP for Retirement: ₹{required_retirement_sip:,.2f}")
     
-    # Store the results back into the state for later nodes
     state["retirement_plan"] = {
-        "years_to_retirement": years_to_retirement,
-        "gross_corpus": gross_corpus,
-        "projected_future_assets": projected_future_assets,
+        "required_sip": abs(required_retirement_sip),
         "net_corpus_to_build": net_corpus_to_build,
-        "required_sip": required_retirement_sip
+        "years_to_retirement": years_to_retirement
     }
 
+    # 3. EMERGENCY FUND (Dynamic Speed)
+    essential_expenses = state["user_profile"]["expenses"]["monthly_total"] - state["user_profile"]["expenses"]["components"]["investment_sips"]
+    target_emergency_fund = essential_expenses * 3 
+    emergency_fund_sip = 0
+    months_needed = 0
+    
+    if state["user_profile"]["assets"]["emergency_fund"] < target_emergency_fund:
+        shortfall = target_emergency_fund - state["user_profile"]["assets"]["emergency_fund"]
+        
+        # Max allocatable is 60% of surplus. Min 1 month, Max 18 months.
+        max_allocatable = monthly_surplus * 0.60
+        
+        if max_allocatable > 0:
+             months_needed = shortfall / max_allocatable
+        else:
+             months_needed = 18 
 
-    #4. Calculate the True "Remaining Surplus"
-    print("\n--- Calculating Remaining Surplus for Other Goals ---")
-    
-  
-    remaining_surplus = state["user_profile"]["monthly_surplus"]
-    
- 
-    remaining_surplus -= state["retirement_plan"]["required_sip"]
-    remaining_surplus -= emergency_fund_sip
-    
+        if months_needed < 1: months_needed = 1
+        if months_needed > 18: months_needed = 18
 
-    state["user_profile"]["remaining_surplus"] = remaining_surplus
-    print(f"True Remaining Surplus for other goals: ₹{remaining_surplus:,.2f}")
+        emergency_fund_sip = shortfall / months_needed
+        
+        state["goals"].append({
+            "name": "Build Emergency Fund",
+            "target_amount": shortfall,
+            "term": "short_term",
+            "type": "Savings",
+            "required_monthly_investment": emergency_fund_sip,
+            "time_horizon_years": months_needed / 12,
+            "achieved_by_year": int(datetime.now().year + (months_needed / 12) if (months_needed/12) > 1 else datetime.now().year)
+        })
 
-    # 5. Process All Other User Goals
-    print("\n--- Processing Other User Goals ---")
+    # 4. SURPLUS SETUP
+    print("\n--- Processing Goals & Surplus ---")
     
+    # Cash for Immediate Buys (Can delay EF by 1 month)
+    cash_this_month = monthly_surplus - abs(required_retirement_sip)
+    
+    # Permanent Surplus (Can NOT delay EF)
+    permanent_surplus_for_sips = cash_this_month - emergency_fund_sip
+
+    state["user_profile"]["remaining_surplus"] = permanent_surplus_for_sips
+
+    # 5. GOAL PROCESSING LOOP
     LOAN_INTEREST_RATE = 0.09 
+    current_year = datetime.now().year
+    
+    total_long_term_allocated_sips = 0 
+    short_term_freed_cash = 0
 
     for goal in state["goals"]:
-        if "Build Emergency Fund (very crucial)" in goal["name"]:
+        if "Build Emergency Fund" in goal["name"]:
             continue
-        #CHANGE THIS IF NEEDED
+            
         if "time_horizon_years" not in goal:
-            if goal["term"] == "short_term":
-                goal["time_horizon_years"] = 2
-            elif goal["term"] == "medium_term":
-                goal["time_horizon_years"] = 5
-            else: # long_term
-                goal["time_horizon_years"] = 10
+            if goal["term"] == "short_term": goal["time_horizon_years"] = 2
+            elif goal["term"] == "medium_term": goal["time_horizon_years"] = 5
+            else: goal["time_horizon_years"] = 10
+        
+        goal["achieved_by_year"] = int(current_year + goal["time_horizon_years"])
 
         inflation_adj_future_cost = npf.fv(
             rate=INFLATION_RATE,
@@ -285,21 +293,41 @@ def finantial_calc(state:AgentState) -> AgentState:
         )
         goal["inflation_adjusted_cost"] = inflation_adj_future_cost
 
-        if goal["type"] == "Loan-Assisted":
+        # --- LOGIC A: IMMEDIATE BUY CHECK ---
+        if inflation_adj_future_cost < (cash_this_month * 0.80):
+            goal["status"] = "IMMEDIATE_BUY"
+            goal["required_monthly_investment"] = 0
+            goal["message"] = "Achievable immediately using this month's cash flow!"
+            goal["achieved_by_year"] = current_year
+            
+            cash_this_month -= inflation_adj_future_cost 
+            continue 
+
+        # --- LOGIC B: LOAN STRATEGY ---
+        if goal["type"] == "Loan-Assisted" or "house" in goal["name"].lower():
+            goal["type"] = "Loan-Assisted" 
             down_payment_needed = inflation_adj_future_cost * 0.20
             loan_principal_amount = inflation_adj_future_cost * 0.80
-
-            # b. Calculate the EMI for the loan portion
-            estimated_emi = npf.pmt(
-                rate=LOAN_INTEREST_RATE / 12,
+            
+            goal["down_payment_needed"] = down_payment_needed
+            
+            required_sip_dp = npf.pmt(
+                rate=INVESTMENT_RETURN_RATE / 12,
                 nper=goal["time_horizon_years"] * 12,
+                pv=0,
+                fv=-down_payment_needed
+            )
+            goal["required_monthly_investment"] = abs(required_sip_dp)
+
+            estimated_future_emi = npf.pmt(
+                rate=LOAN_INTEREST_RATE / 12,
+                nper=20 * 12, 
                 pv=-loan_principal_amount
             )
+            goal["estimated_emi"] = abs(estimated_future_emi)
+            goal["message"] = f"Save for Down Payment. Future Loan EMI: ~₹{abs(estimated_future_emi):,.0f}"
 
-            goal["down_payment_needed"] = down_payment_needed
-            goal["estimated_emi"] = abs(estimated_emi)
-
-
+        # --- LOGIC C: STANDARD SIP ---
         elif goal["type"] in ["Investment", "Savings"]:
             required_sip = 0
             if inflation_adj_future_cost > 0:
@@ -309,11 +337,194 @@ def finantial_calc(state:AgentState) -> AgentState:
                      pv=0,
                      fv=-inflation_adj_future_cost
                  )
-            
             goal["required_monthly_investment"] = abs(required_sip)
+        
+        # Trackers
+        total_long_term_allocated_sips += goal.get("required_monthly_investment", 0)
+        cash_this_month -= goal.get("required_monthly_investment", 0) 
 
+        if goal["term"] == "short_term":
+             short_term_freed_cash += goal.get("required_monthly_investment", 0)
+        
+        goal["future_snowball_cash"] = short_term_freed_cash
+
+    # 6. WEALTH ACCELERATION
+    long_term_wealth_capacity = monthly_surplus - abs(required_retirement_sip) - total_long_term_allocated_sips
+    
+    if long_term_wealth_capacity > 2000:
+         state["goals"].append({
+            "name": "Wealth Acceleration (Post-Emergency)",
+            "type": "Investment",
+            "term": "ongoing",
+            "time_horizon_years": 0,
+            "required_monthly_investment": long_term_wealth_capacity,
+            "message": "Once your short-term emergency fund is full, invest this surplus for long-term wealth."
+         })
 
     return state
+# def finantial_calc(state:AgentState) -> AgentState:
+#     print(" ")
+#     print("==========================Inside Financial Calculator==========================")
+
+
+#     #1. calc the monthly surplus --> monthlyincome - monthly expenses
+
+#     monthly_income=state["user_profile"]["income"]["annual"]/12
+#     state["user_profile"]["income"]["monthly_income"]=monthly_income
+
+#     monthly_surplus = state["user_profile"]["income"]["monthly_income"]-state["user_profile"]["expenses"]["monthly_total"]
+#     state["user_profile"]["monthly_surplus"]=monthly_surplus
+
+#     #2. Checking for emergency fund that i should have
+#         #emergency fund = essential monthly expenses * 3 or 6  (for 3 months or 6 months)
+    
+#     essential_expenses= state["user_profile"]["expenses"]["monthly_total"]-state["user_profile"]["expenses"]["components"]["investment_sips"]
+
+#     target_emergency_fund=essential_expenses * 3 # kept a 3 month emergency fund for now
+#     emergency_fund_sip=0
+#     if state["user_profile"]["assets"]["emergency_fund"] < target_emergency_fund:
+#         shortfall=  target_emergency_fund - state["user_profile"]["assets"]["emergency_fund"]
+#         emergency_fund_sip = shortfall / 18
+#         dictionary= {
+#             "name":"Build Emergency Fund (very crucial)",
+#             "target_amount": shortfall,
+#             "term": "short_term",
+#             "type": "Savings",
+#             "required_monthly_investment": emergency_fund_sip 
+#         }
+
+#         state["goals"].append(dictionary)
+
+#     print(state)
+    
+
+#     #3 Perform the Complete Retirement Calculation
+#     current_age = state["user_profile"]["age"]
+    
+#     desired_retirement_age = state["user_profile"]["retirement_info"]["desired_retirement_age"]
+
+#     years_to_retirement = desired_retirement_age - current_age
+    
+#     desired_monthly_expenses = state["user_profile"]["retirement_info"]["desired_retirement_expenses_inr"]
+#     current_annual_base_expense = desired_monthly_expenses * 12
+
+#     # a. Gross Corpus Calculation
+#     future_annual_expenses = npf.fv(INFLATION_RATE, years_to_retirement, 0, -current_annual_base_expense)
+#     gross_corpus = future_annual_expenses * 25 # Using the 4% rule (1/0.04 = 25)
+#     print(f"Years to Retirement: {years_to_retirement}")
+#     print(f"Future Annual Expenses (at retirement): ₹{future_annual_expenses:,.2f}")
+#     print(f"Gross Retirement Corpus Needed: ₹{gross_corpus:,.2f}")
+
+#     # b. Future Value of Existing Assets
+#     projected_future_assets = 0
+#     assets = state["user_profile"]["assets"]
+    
+#     # Project EPF, PPF, NPS
+#     projected_future_assets += npf.fv(EPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["epf"]) #investment emis are not considered 
+#     projected_future_assets += npf.fv(PPF_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["ppf"]) #investment emis are not considered 
+#     projected_future_assets += npf.fv(NPS_RETURN_RATE, years_to_retirement, 0, -assets["savings"]["nps"]) #investment emis are not considered 
+    
+#     # Assume 80% of other investments are for retirement
+#     retirement_investments_pv = assets["total_investments"] * 0.80
+#     projected_future_assets += npf.fv(INVESTMENT_RETURN_RATE, years_to_retirement, 0, -retirement_investments_pv)
+#     print(f"Projected Future Value of Existing Assets: ₹{projected_future_assets:,.2f}")
+    
+#     # c. Net Corpus (The Shortfall)
+#     net_corpus_to_build = gross_corpus - projected_future_assets
+#     if net_corpus_to_build < 0:
+#         net_corpus_to_build = 0 
+#     print(f"Net Corpus (Shortfall) to Build: ₹{net_corpus_to_build:,.2f}") # Check for unrealistic maybe??
+
+#     # d. Required SIP to cover the shortfall
+#     required_retirement_sip = 0
+#     if net_corpus_to_build > 0:
+#         # Using numpy_financial.pmt to calculate the monthly payment
+#         required_retirement_sip = npf.pmt(
+#             rate=INVESTMENT_RETURN_RATE / 12, 
+#             nper=years_to_retirement * 12, 
+#             pv=0, 
+#             fv=-net_corpus_to_build
+#         )
+#     print(f"Required Monthly SIP for Retirement: ₹{required_retirement_sip:,.2f}")
+    
+#     # Store the results back into the state for later nodes
+#     state["retirement_plan"] = {
+#         "years_to_retirement": years_to_retirement,
+#         "gross_corpus": gross_corpus,
+#         "projected_future_assets": projected_future_assets,
+#         "net_corpus_to_build": net_corpus_to_build,
+#         "required_sip": required_retirement_sip
+#     }
+
+
+#     #4. Calculate the True "Remaining Surplus"
+#     print("\n--- Calculating Remaining Surplus for Other Goals ---")
+    
+  
+#     remaining_surplus = state["user_profile"]["monthly_surplus"]
+    
+ 
+#     remaining_surplus -= state["retirement_plan"]["required_sip"]
+#     remaining_surplus -= emergency_fund_sip
+    
+
+#     state["user_profile"]["remaining_surplus"] = remaining_surplus
+#     print(f"True Remaining Surplus for other goals: ₹{remaining_surplus:,.2f}")
+
+#     # 5. Process All Other User Goals
+#     print("\n--- Processing Other User Goals ---")
+    
+#     LOAN_INTEREST_RATE = 0.09 
+
+#     for goal in state["goals"]:
+#         if "Build Emergency Fund (very crucial)" in goal["name"]:
+#             continue
+#         #CHANGE THIS IF NEEDED
+#         if "time_horizon_years" not in goal:
+#             if goal["term"] == "short_term":
+#                 goal["time_horizon_years"] = 2
+#             elif goal["term"] == "medium_term":
+#                 goal["time_horizon_years"] = 5
+#             else: # long_term
+#                 goal["time_horizon_years"] = 10
+
+#         inflation_adj_future_cost = npf.fv(
+#             rate=INFLATION_RATE,
+#             nper=goal["time_horizon_years"],
+#             pmt=0,
+#             pv=-goal["target_amount"]
+#         )
+#         goal["inflation_adjusted_cost"] = inflation_adj_future_cost
+
+#         if goal["type"] == "Loan-Assisted":
+#             down_payment_needed = inflation_adj_future_cost * 0.20
+#             loan_principal_amount = inflation_adj_future_cost * 0.80
+
+#             # b. Calculate the EMI for the loan portion
+#             estimated_emi = npf.pmt(
+#                 rate=LOAN_INTEREST_RATE / 12,
+#                 nper=goal["time_horizon_years"] * 12,
+#                 pv=-loan_principal_amount
+#             )
+
+#             goal["down_payment_needed"] = down_payment_needed
+#             goal["estimated_emi"] = abs(estimated_emi)
+
+
+#         elif goal["type"] in ["Investment", "Savings"]:
+#             required_sip = 0
+#             if inflation_adj_future_cost > 0:
+#                  required_sip = npf.pmt(
+#                      rate=INVESTMENT_RETURN_RATE / 12,
+#                      nper=goal["time_horizon_years"] * 12,
+#                      pv=0,
+#                      fv=-inflation_adj_future_cost
+#                  )
+            
+#             goal["required_monthly_investment"] = abs(required_sip)
+
+
+#     return state
 
 def feasibility_checker(state:AgentState) ->AgentState :
     print(" ")
