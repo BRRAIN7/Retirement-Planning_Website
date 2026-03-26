@@ -62,7 +62,7 @@ const AssessmentForm = ({
       },
       liabilities: {
         total_debt: "",
-        monthly_debt_contribution: "",
+        monthly_debt_contribution: "0",
       },
     },
     goals: {

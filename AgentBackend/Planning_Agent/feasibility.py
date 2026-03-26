@@ -9,6 +9,7 @@ def warnings_generator(state: "AgentState") -> dict:
     """
     Generates a comprehensive feasibility report by checking all
     foundational, goal-specific, and health-related rules.
+    Includes Cumulative Budgeting to prevent double-counting surplus.
     """
     print("Generates various warning on checking feasibility of the entered goals")
     feasibility_report = {
@@ -24,12 +25,18 @@ def warnings_generator(state: "AgentState") -> dict:
         retirement_plan = state["retirement_plan"]
 
         total_monthly_surplus = profile.get("monthly_surplus", 0)
-        remaining_surplus = profile.get("remaining_surplus", 0)
-        monthly_income = profile.get("income", {}).get("monthly_income", 1) # Use 1 to avoid ZeroDivisionError
+        
+        # This is the Master Surplus we start with for Lifestyle goals
+        # (Surplus - Retirement SIP - Emergency Fund SIP)
+        # We grab this from the profile where the calculator calculated it.
+        remaining_surplus = profile.get("remaining_surplus", 0) 
+        
+        monthly_income = profile.get("income", {}).get("monthly_income", 1) 
 
         req_retirement_sip = retirement_plan.get("required_sip", 0)
         existing_emis = profile.get("expenses", {}).get("components", {}).get("loan_emis", 0)
 
+        # Get Emergency Fund SIP specifically for Foundation Check
         emergency_fund_sip = 0
         for goal in goals:
             if "Build Emergency Fund" in goal.get("name", ""):
@@ -42,8 +49,6 @@ def warnings_generator(state: "AgentState") -> dict:
         print(f"Total Monthly Surplus: ₹{total_monthly_surplus:,.2f}")
         print(f"Total Foundation (Needs) Cost: ₹{total_foundation_cost:,.2f}")
         print(f"Remaining Surplus (for Wants): ₹{remaining_surplus:,.2f}")
-        print(f"Existing EMIs: ₹{existing_emis:,.2f}")
-        print(f"Monthly Income: ₹{monthly_income:,.2f}")
 
     except KeyError as e:
         print(f"CRITICAL ERROR: Missing key {e} in state. Cannot run feasibility check.")
@@ -51,12 +56,11 @@ def warnings_generator(state: "AgentState") -> dict:
             "status": "Error",
             "message": f"Critical data missing: {e}. Cannot perform checks."
         }
-        # We don't return state here, just the report
         return feasibility_report
 
     # --- 2. Implement the Rules ---
 
-    # == RULE 1: Foundational Solvency Check (Your Code) ==
+    # == RULE 1: Foundational Solvency Check ==
     if total_foundation_cost > total_monthly_surplus:
         feasibility_report["foundational_solvency"] = {
             "status": "Fundamentally Unaffordable",
@@ -67,8 +71,7 @@ def warnings_generator(state: "AgentState") -> dict:
             )
         }
         print(f"CRITICAL: {feasibility_report['foundational_solvency']['message']}")
-        # This is a show-stopper. We can return the report early.
-        return feasibility_report
+        return feasibility_report # Stop here if basics aren't met
     else:
         feasibility_report["foundational_solvency"] = {
             "status": "Foundation Secure",
@@ -76,7 +79,7 @@ def warnings_generator(state: "AgentState") -> dict:
         }
         print("INFO: Foundational Solvency Check: PASSED")
 
-    # == RULE 4: Retirement Reality Check (Your Code) ==
+    # == RULE 2: Retirement Reality Check ==
     desired_retirement_spending = profile.get("retirement_info", {}).get("desired_retirement_expenses_inr", 0)
     investment_sips = profile.get("expenses", {}).get("components", {}).get("investment_sips", 0)
     current_essential_expenses = profile.get("expenses", {}).get("monthly_total", 0) - investment_sips
@@ -87,27 +90,30 @@ def warnings_generator(state: "AgentState") -> dict:
     if desired_retirement_spending < lower_bound:
         feasibility_report["retirement_reality_check"] = {
             "status": "Review Recommended (Under-Estimate)",
-            "message": f"Your desired retirement spending (₹{desired_retirement_spending:,.0f}) is < 70% of your current essential spending (₹{current_essential_expenses:,.0f})."
+            "message": f"Your desired retirement spending (₹{desired_retirement_spending:,.0f}) is < 70% of your current essential spending."
         }
     elif desired_retirement_spending > upper_bound:
         feasibility_report["retirement_reality_check"] = {
             "status": "Aggressive Goal (Over-Estimate)",
-            "message": f"Your desired retirement spending (₹{desired_retirement_spending:,.0f}) is > 150% of your current spending (₹{current_essential_expenses:,.0f})."
+            "message": f"Your desired retirement spending (₹{desired_retirement_spending:,.0f}) is > 150% of your current spending."
         }
     else:
         feasibility_report["retirement_reality_check"] = {
             "status": "Seems Realistic",
             "message": "Your desired retirement spending is in a realistic range compared to your current lifestyle."
         }
-    print(f"INFO: Retirement Reality Check: {feasibility_report['retirement_reality_check']['status']}")
 
-    # == RULES 2 & 3: Individual Goal Feasibility + DTI Check (Your Code + Added Logic) ==
+    # == RULE 3: Individual Goal Feasibility + Cumulative Check ==
     print("--- Checking Individual Goals ---")
+    
+    # FIX: Initialize Running Surplus tracker
+    running_surplus_tracker = remaining_surplus
 
     for goal in goals:
         goal_name = goal.get("name", "Unknown Goal")
         goal_details = {}
 
+        # Skip Emergency Fund (Already handled in Foundation Check)
         if "Build Emergency Fund" in goal_name:
             goal_details = {
                 "status": "Foundation Goal",
@@ -115,24 +121,42 @@ def warnings_generator(state: "AgentState") -> dict:
             }
             feasibility_report["goal_details"][goal_name] = goal_details
             continue
+            
+        # Skip Wealth Acceleration (It absorbs whatever is left, doesn't need a check)
+        if "Wealth Acceleration" in goal_name:
+             goal_details = {
+                "status": "Surplus Allocation",
+                "message": "This utilizes remaining cash after all other goals."
+            }
+             feasibility_report["goal_details"][goal_name] = goal_details
+             continue
 
-        goal_monthly_cost = goal.get("required_monthly_investment", goal.get("estimated_emi", 0))
-
-        # == RULE 2: Basic Feasibility (Affordability) (Your Code) ==
+        # Determine monthly cost (SIP or EMI)
+        goal_monthly_cost = goal.get("required_monthly_investment", 0)
+        
+        # 3A. Absolute Check (Isolation)
         if goal_monthly_cost > remaining_surplus:
             goal_details["status"] = "Unrealistic"
             goal_details["message"] = (
-                f"This goal's monthly cost (₹{goal_monthly_cost:,.2f}) is greater than your remaining surplus (₹{remaining_surplus:,.2f})."
+                f"Cost (₹{goal_monthly_cost:,.0f}) exceeds total available surplus (₹{remaining_surplus:,.0f})."
             )
-            print(f"GOAL CHECK: '{goal_name}' -> Unrealistic")
+        
+        # 3B. FIX: Cumulative Check (Sequence)
+        elif goal_monthly_cost > running_surplus_tracker:
+            goal_details["status"] = "Unrealistic (Cumulative)"
+            goal_details["message"] = (
+                f"Feasible alone, but unaffordable because previous goals used up the budget. "
+                f"Available: ₹{running_surplus_tracker:,.0f}, Needed: ₹{goal_monthly_cost:,.0f}."
+            )
+        
         else:
             goal_details["status"] = "Feasible"
-            goal_details["message"] = (
-                f"This goal's monthly cost (₹{goal_monthly_cost:,.2f}) fits within your remaining surplus."
-            )
-            print(f"GOAL CHECK: '{goal_name}' -> Feasible")
+            goal_details["message"] = "Fits comfortably within your budget."
+            # Only subtract from running tracker if it's feasible
+            running_surplus_tracker -= goal_monthly_cost
+            
 
-        # == AFFORDABILITY RATIO (Your Code) ==
+        # 3C. Affordability Ratio (Risk Gauge)
         if remaining_surplus > 0:
             affordability_ratio = goal_monthly_cost / remaining_surplus
             if affordability_ratio > 1.0: aff_status = "Unrealistic"
@@ -143,49 +167,43 @@ def warnings_generator(state: "AgentState") -> dict:
             
             goal_details["affordability_check"] = {
                 "status": aff_status,
-                "message": f"This goal consumes {affordability_ratio*100:.1f}% of your remaining surplus."
+                "ratio": f"{affordability_ratio*100:.1f}%"
             }
         else:
-            goal_details["affordability_check"] = { "status": "Unrealistic", "message": "No remaining surplus." }
+            goal_details["affordability_check"] = { "status": "Unrealistic", "message": "Zero Surplus" }
             
         
-        # ==================== NEW LOGIC ADDED HERE ====================
-        
-        # == RULE 3: New Debt Health Check (DTI) ==
+        # 3D. Debt-to-Income (DTI) Check for Future Loans
         if goal.get("type") == "Loan-Assisted" and monthly_income > 0:
             
             new_estimated_emi = goal.get("estimated_emi", 0)
             new_total_debt_load = existing_emis + new_estimated_emi
             new_dti_ratio = new_total_debt_load / monthly_income
 
-            # Apply tiered triggers
             if new_dti_ratio > 0.50:
                 dti_status = "Unmanageable"
-                dti_message = f"This new loan would push your total debt to {new_dti_ratio*100:.0f}% of your income, which is dangerously high."
+                dti_msg = "Dangerously high DTI (>50%). Banks will reject this."
             elif new_dti_ratio > 0.43:
                 dti_status = "High Risk"
-                dti_message = f"This new loan would push your total debt to {new_dti_ratio*100:.0f}% of your income, which is a high-risk level."
-            elif new_dti_ratio > 0.37:
-                dti_status = "Manageable, but Tight"
-                dti_message = f"Your total debt would be {new_dti_ratio*100:.0f}% of your income. This is acceptable, but your budget will be tight."
+                dti_msg = "High risk DTI (>43%)."
+            elif new_dti_ratio > 0.35:
+                dti_status = "Tight"
+                dti_msg = "Acceptable but tight budget."
             else:
                 dti_status = "Safe"
-                dti_message = f"Your total debt level of {new_dti_ratio*100:.0f}% is healthy."
+                dti_msg = "Healthy debt levels."
 
-            # Add this check to the goal's details
             goal_details["dti_check"] = {
                 "status": dti_status,
-                "new_dti_ratio": round(new_dti_ratio, 2),
-                "message": dti_message
+                "new_dti_ratio": f"{new_dti_ratio*100:.1f}%",
+                "message": dti_msg
             }
-            print(f"GOAL CHECK: '{goal_name}' -> DTI Status: {dti_status}")
         
-        # ===================== NEW LOGIC ENDS HERE =====================
-
+        # Save details
         feasibility_report["goal_details"][goal_name] = goal_details
 
     # --- 3. Finalize ---
-    print("\nFeasibility Check Complete. Final report:")
-    print(json.dumps(feasibility_report, indent=2))
+    print("\nFeasibility Check Complete.")
+    # print(json.dumps(feasibility_report, indent=2))
     
     return feasibility_report
