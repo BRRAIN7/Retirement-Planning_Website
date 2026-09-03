@@ -415,7 +415,7 @@ def plan_generator(state:AgentState) ->AgentState :
 
     # Send request and stream response
     stream = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="qwen/qwen3.8-27b",
         messages=[
             {"role": "system", "content": "You are FinCoach, a professional financial advisor in India."},
             *state.get("messages", []),
@@ -496,7 +496,7 @@ If request is unclear or unsupported:
         api_key = os.getenv("GROQ_API_KEY")
         client = Groq(api_key=api_key)
         response = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="qwen/qwen3.8-27b",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_msg}
@@ -574,7 +574,7 @@ def general_chat(state: AgentState) -> AgentState:
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
     stream = client.chat.completions.create(
-        model="llama-3.1-8b-instant",
+        model="qwen/qwen3.8-27b",
         messages=messages_for_llm,
         temperature=0.7,
         stream=True
