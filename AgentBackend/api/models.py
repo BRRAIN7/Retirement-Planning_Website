@@ -7,7 +7,6 @@ class UserProfile(models.Model):
     name = models.CharField(max_length=100, null=True, blank=True)
     age = models.IntegerField(null=True, blank=True)
     gender = models.CharField(max_length=10, null=True, blank=True)
-    marital_status = models.CharField(max_length=20, null=True, blank=True)
     number_of_children = models.IntegerField(null=True, blank=True)
     risk_appetite = models.CharField(max_length=20, null=True, blank=True)
 
@@ -26,7 +25,6 @@ class Income(models.Model):
 class Liabilities(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="liabilities")
     total_debt = models.DecimalField(max_digits=15, decimal_places=2, null=True)
-    monthly_debt_contribution = models.DecimalField(max_digits=15, decimal_places=2, null=True)
 
     def __str__(self):
         return f"{self.user.username} Liabilities"
@@ -109,11 +107,7 @@ class RetirementInfo(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="retirement_info")
 
     desired_retirement_age = models.IntegerField(null=True, blank=True)
-    retirement_lifestyle_description = models.TextField(null=True, blank=True)
     desired_retirement_expenses_inr = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
-    risk_tolerance_score = models.IntegerField(null=True, blank=True)
-    investment_preferences = models.TextField(null=True, blank=True)
-    annual_savings_rate_percent = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True)
 
     def __str__(self):
         return f"{self.user.username} RetirementInfo"

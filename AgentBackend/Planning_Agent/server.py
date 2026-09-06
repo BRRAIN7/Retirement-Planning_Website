@@ -18,7 +18,6 @@
 #                 "name": try_data["personal_info"]["name"],
 #                 "current_age": int(try_data["personal_info"]["current_age"]),
 #                 "gender": try_data["personal_info"]["gender"],
-#                 "marital_status": try_data["personal_info"]["marital_status"],
 #                 "number_of_children": int(try_data["personal_info"]["number_of_children"])
 #             },
 #             "financial_info": {
@@ -52,7 +51,6 @@
 #                 },
 #                 "liabilities": {
 #                     "total_debt": int(try_data["financial_info"]["liabilities"]["total_debt"]),
-#                     "monthly_debt_contribution": int(try_data["financial_info"]["liabilities"]["monthly_debt_contribution"])
 #                 }
 #             },
 #             "goals": {
@@ -77,11 +75,7 @@
 #             },
 #             "retirement_info": {
 #                 "desired_retirement_age": int(try_data["retirement_info"]["desired_retirement_age"]),
-#                 "retirement_lifestyle_description": try_data["retirement_info"]["retirement_lifestyle_description"],
 #                 "desired_retirement_expenses_inr": int(try_data["retirement_info"]["desired_retirement_expenses_inr"]),
-#                 "risk_tolerance_score": int(try_data["retirement_info"]["risk_tolerance_score"]),
-#                 "investment_preferences": try_data["retirement_info"]["investment_preferences"],
-#                 "annual_savings_rate_percent": float(try_data["retirement_info"]["annual_savings_rate_percent"])
 #             }
 #         }
 
@@ -109,7 +103,6 @@ def collecctor():
             "name": "Aryan Kumar",
             "current_age": 30,
             "gender": "Male",
-            "marital_status": "Married",
             "number_of_children": 1
         },
         "financial_info": {
@@ -143,7 +136,6 @@ def collecctor():
             },
             "liabilities": {
                 "total_debt": 500000,
-                "monthly_debt_contribution": 20000
             }
         },
         "goals": {
@@ -168,11 +160,7 @@ def collecctor():
         },
         "retirement_info": {
             "desired_retirement_age": 60,
-            "retirement_lifestyle_description": "A comfortable life with travel twice a year and pursuing hobbies.",
             "desired_retirement_expenses_inr": 75000,
-            "risk_tolerance_score": 10,
-            "investment_preferences": "Saving",
-            "annual_savings_rate_percent": 45677.78
         }
     }
 

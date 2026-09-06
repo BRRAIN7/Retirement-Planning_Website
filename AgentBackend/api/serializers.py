@@ -9,7 +9,6 @@ class PersonalInfoSerializer(serializers.Serializer):
     name = serializers.CharField()
     current_age = serializers.IntegerField(min_value=18, max_value=100)
     gender = serializers.CharField()
-    marital_status = serializers.CharField()
     number_of_children = serializers.IntegerField(min_value=0)
 
 class IncomeInputSerializer(serializers.Serializer):
@@ -59,7 +58,6 @@ class AssetsInputSerializer(serializers.Serializer):
 
 class LiabilitiesInputSerializer(serializers.Serializer):
     total_debt = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0)
-    monthly_debt_contribution = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0)
 
 class FinancialInfoSerializer(serializers.Serializer):
     income = IncomeInputSerializer()
@@ -78,11 +76,7 @@ class GoalsSerializer(serializers.Serializer):
 
 class RetirementInfoSerializer(serializers.Serializer):
     desired_retirement_age = serializers.IntegerField(min_value=40, max_value=100)
-    retirement_lifestyle_description = serializers.CharField(allow_blank=True)
     desired_retirement_expenses_inr = serializers.DecimalField(max_digits=15, decimal_places=2, min_value=0)
-    risk_tolerance_score = serializers.IntegerField(min_value=1, max_value=10)
-    investment_preferences = serializers.CharField(allow_blank=True)
-    annual_savings_rate_percent = serializers.DecimalField(max_digits=5, decimal_places=2, min_value=0)
 
 # ------------------------------------------------------
 # FINAL MASTER SERIALIZER
@@ -112,7 +106,6 @@ class FinancialInputSerializer(serializers.Serializer):
                 'name': p_info['name'],
                 'age': p_info['current_age'],
                 'gender': p_info['gender'],
-                'marital_status': p_info['marital_status'],
                 'number_of_children': p_info['number_of_children'],
             }
         )
@@ -129,7 +122,6 @@ class FinancialInputSerializer(serializers.Serializer):
             user=user,
             defaults={
                 'total_debt': liab['total_debt'],
-                'monthly_debt_contribution': liab['monthly_debt_contribution']
             }
         )
 
@@ -192,10 +184,6 @@ class FinancialInputSerializer(serializers.Serializer):
             user=user,
             defaults={
                 'desired_retirement_age': ret['desired_retirement_age'],
-                'retirement_lifestyle_description': ret['retirement_lifestyle_description'],
                 'desired_retirement_expenses_inr': ret['desired_retirement_expenses_inr'],
-                'risk_tolerance_score': ret['risk_tolerance_score'],
-                'investment_preferences': ret['investment_preferences'],
-                'annual_savings_rate_percent': ret['annual_savings_rate_percent'],
             }
         )

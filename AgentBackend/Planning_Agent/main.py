@@ -38,7 +38,6 @@ def input_collector(state:AgentState) ->AgentState :
         "name": input_data.get("personal_info", {}).get("name"),
         "age": input_data.get("personal_info", {}).get("current_age"),
         "gender": input_data.get("personal_info", {}).get("gender"),
-        "marital_status": input_data.get("personal_info", {}).get("marital_status"),
         "number_of_children": input_data.get("personal_info", {}).get("number_of_children"),
         "income": input_data.get("financial_info", {}).get("income", {}),
         "expenses": input_data.get("financial_info", {}).get("expenses", {}),
@@ -415,7 +414,7 @@ def plan_generator(state:AgentState) ->AgentState :
 
     # Send request and stream response
     stream = client.chat.completions.create(
-        model="qwen/qwen3.8-27b",
+        model="openai/gpt-oss-120b",
         messages=[
             {"role": "system", "content": "You are FinCoach, a professional financial advisor in India."},
             *state.get("messages", []),

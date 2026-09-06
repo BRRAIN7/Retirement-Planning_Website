@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectTrigger,
@@ -39,7 +38,6 @@ const AssessmentForm = ({
       name: "",
       current_age: "",
       gender: "",
-      marital_status: "",
       number_of_children: "",
     },
     financial_info: {
@@ -62,7 +60,6 @@ const AssessmentForm = ({
       },
       liabilities: {
         total_debt: "",
-        monthly_debt_contribution: "0",
       },
     },
     goals: {
@@ -72,11 +69,7 @@ const AssessmentForm = ({
     },
     retirement_info: {
       desired_retirement_age: "",
-      retirement_lifestyle_description: "",
       desired_retirement_expenses_inr: "",
-      risk_tolerance_score: 1,
-      investment_preferences: "",
-      annual_savings_rate_percent: "0",
     },
   });
 
@@ -225,8 +218,6 @@ const AssessmentForm = ({
 
         retirementGoal: 10000000,
 
-        riskTolerance: formData.retirement_info.risk_tolerance_score,
-
         recommendations: [
           "Increase SIP investments monthly to accelerate retirement savings",
           "Aim for a diversified allocation across equity, debt, and gold",
@@ -358,27 +349,6 @@ const AssessmentForm = ({
                   <SelectItem value="Male">Male</SelectItem>
                   <SelectItem value="Female">Female</SelectItem>
                   <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Marital Status Group */}
-            <div className="space-y-2">
-              <Label>Marital Status</Label>
-              <Select
-                value={personal_info.marital_status}
-                onValueChange={handleNestedSelectChange([
-                  "personal_info",
-                  "marital_status",
-                ])}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Single">Single</SelectItem>
-                  <SelectItem value="Married">Married</SelectItem>
-                  <SelectItem value="Divorced">Divorced</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -604,25 +574,6 @@ const AssessmentForm = ({
                         "financial_info",
                         "liabilities",
                         "total_debt",
-                      ])}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Monthly Debt Contribution (₹)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={
-                        financial_info.liabilities.monthly_debt_contribution
-                      }
-                      onKeyDown={(e) =>
-                        ["e", "E", "+", "-", "."].includes(e.key) &&
-                        e.preventDefault()
-                      }
-                      onChange={handleNestedChange([
-                        "financial_info",
-                        "liabilities",
-                        "monthly_debt_contribution",
                       ])}
                     />
                   </div>
@@ -999,44 +950,6 @@ const AssessmentForm = ({
               />
             </div>
 
-            {/* Investment Preference */}
-            <div className="space-y-2">
-              <Label>Investment Preference</Label>
-              <Select
-                value={retirement_info.investment_preferences}
-                onValueChange={handleNestedSelectChange([
-                  "retirement_info",
-                  "investment_preferences",
-                ])}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a preference" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Saving">Saving (Low Risk)</SelectItem>
-                  <SelectItem value="Conservative">Conservative</SelectItem>
-                  <SelectItem value="Balanced">Balanced</SelectItem>
-                  <SelectItem value="Growth">Growth</SelectItem>
-                  <SelectItem value="Aggressive Growth">
-                    Aggressive Growth (High Risk)
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Lifestyle Description */}
-            <div className="space-y-2">
-              <Label>Lifestyle Description</Label>
-              <Textarea
-                rows={4}
-                placeholder="Describe your ideal retirement lifestyle (e.g., traveling twice a year, living in a farmhouse, etc.)"
-                value={retirement_info.retirement_lifestyle_description}
-                onChange={handleNestedChange([
-                  "retirement_info",
-                  "retirement_lifestyle_description",
-                ])}
-              />
-            </div>
           </div>
         );
 

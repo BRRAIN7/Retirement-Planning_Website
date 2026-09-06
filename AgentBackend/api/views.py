@@ -96,7 +96,6 @@ def build_state_from_db(user):
             "name": profile.name,
             "age": profile.age,
             "gender": profile.gender,
-            "marital_status": profile.marital_status,
             "number_of_children": profile.number_of_children,
             "income": {
                 "annual": float(income.annual_income or 0),
@@ -128,15 +127,10 @@ def build_state_from_db(user):
             },
             "liabilities": {
                 "total_debt": float(liabilities.total_debt or 0),
-                "monthly_debt_contribution": float(liabilities.monthly_debt_contribution or 0),
             },
             "retirement_info": {
                 "desired_retirement_age": retirement.desired_retirement_age,
-                "retirement_lifestyle_description": retirement.retirement_lifestyle_description,
                 "desired_retirement_expenses_inr": float(retirement.desired_retirement_expenses_inr or 0),
-                "risk_tolerance_score": retirement.risk_tolerance_score,
-                "investment_preferences": retirement.investment_preferences,
-                "annual_savings_rate_percent": float(retirement.annual_savings_rate_percent or 0),
             },
         },
 
@@ -288,7 +282,6 @@ class SubmitFinancialDataView(APIView):
             user.profile.risk_appetite = new_risk # Assuming you added this field back or use a dedicated model
             # If you removed risk_appetite from UserProfile as suggested, 
             # you might ignore this or update RetirementInfo instead.
-            # user.retirement_info.risk_tolerance_score = ... (if mapping string to int)
             user.profile.save()
 
         # Save the Plan as the first assistant message

@@ -24,7 +24,6 @@ def _prepare_full_data_for_db(state):
         'name': personal.get('name'),
         'age': personal.get('current_age'),
         'gender': personal.get('gender'),
-        'marital_status': personal.get('marital_status'),
         'number_of_children': personal.get('number_of_children'),
         'risk_appetite': state.get('risk_appetite', 'unknown') 
     }
@@ -38,7 +37,6 @@ def _prepare_full_data_for_db(state):
     liabilities_source = financial['liabilities']
     liabilities_data = {
         'total_debt': Decimal(liabilities_source.get('total_debt', 0)),
-        'monthly_debt_contribution': Decimal(liabilities_source.get('monthly_debt_contribution', 0))
     }
 
     # 4. assets Data
@@ -101,7 +99,7 @@ def insert(state):
 
         # --- A. Insert user_profile ---
         print("1. Inserting user profile...")
-        profile_sql = "INSERT INTO user_profile (name, age, gender, marital_status, number_of_children, risk_appetite) VALUES (%s, %s, %s, %s, %s, %s)"
+        profile_sql = "INSERT INTO user_profile (name, age, gender, number_of_children, risk_appetite) VALUES (%s, %s, %s, %s, %s)"
         cursor.execute(profile_sql, tuple(profile_data.values()))
         user_id = cursor.lastrowid
         print(f"   User profile inserted. New user_id: {user_id}")
@@ -113,9 +111,8 @@ def insert(state):
 
         # --- C. Insert liabilities ---
         print("3. Inserting liabilities data...")
-        liab_sql = "INSERT INTO liabilities (user_id, total_debt, monthly_debt_contribution) VALUES (%s, %s, %s)"
-        liab_values = (user_id, liabilities_data['total_debt'], liabilities_data['monthly_debt_contribution'])
-        cursor.execute(liab_sql, liab_values)
+        liab_sql = "INSERT INTO liabilities (user_id, total_debt) VALUES (%s, %s)"
+        cursor.execute(liab_sql, (user_id, liabilities_data['total_debt']))
 
         # --- D. Insert assets ---
         print("4. Inserting assets data...")
